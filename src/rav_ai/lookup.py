@@ -107,6 +107,7 @@ def neighbors(session: Session, ref: str, limit_per_group: int = 10_000):
               UNION ALL
               SELECT segment_a_id, edge_type, origin FROM edges WHERE segment_b_id=:i) e
         JOIN segments o ON o.id = e.other JOIN works w ON w.id = o.work_id
+        ORDER BY o.work_id, o.node_index, o.sort_key, e.edge_type, o.ref
         LIMIT :lim"""),
         {"i": sid, "lim": limit_per_group},
     ).all()

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,22 +21,44 @@ class Permission:
     can_train: bool
 
 
+def _key(s: str | None) -> str:
+    """Canonical license key: lowercase, whitespace/underscore/slash -> "-"."""
+    return re.sub(r"[\s_/]+", "-", (s or "").strip().lower())
+
+
 class LicensePolicy:
+    """license string -> Permission. Exact/alias match first, then longest key-prefix match
+    (so versioned or suffixed strings like "CC-BY-SA 3.0 Unported" resolve to cc-by-sa)."""
+
     def __init__(self, table: dict[str, Permission]):
-        self.table = table
+        self.table = {_key(k): v for k, v in table.items()}
+        self._by_len = sorted(self.table, key=len, reverse=True)
 
     @classmethod
     def load(cls, path: Path = POLICY_PATH) -> LicensePolicy:
         with open(path, "rb") as f:
             raw = tomllib.load(f)["licenses"]
-        table = {
-            k.lower(): Permission(v["can_index"], v["can_display_public"], v["can_train"])
-            for k, v in raw.items()
-        }
-        if "unknown" not in table:
-            table["unknown"] = Permission(False, False, False)
+        table: dict[str, Permission] = {}
+        for name, v in raw.items():
+            perm = Permission(v["can_index"], v["can_display_public"], v["can_train"])
+            for k in (name, *v.get("aliases", [])):
+                table[k] = perm
+        table.setdefault("unknown", Permission(False, False, False))
         return cls(table)
 
+    def match(self, license_str: str | None) -> str:
+        """Policy key that applies to `license_str` ('unknown' if none)."""
+        k = _key(license_str)
+        if k in self.table:
+            return k
+        for cand in self._by_len:
+            if (
+                cand != "unknown"
+                and k.startswith(cand)
+                and (len(k) == len(cand) or k[len(cand)] == "-")
+            ):
+                return cand
+        return "unknown"
+
     def evaluate(self, license_str: str | None) -> Permission:
-        key = (license_str or "").strip().lower()
-        return self.table.get(key, self.table["unknown"])
+        return self.table[self.match(license_str)]

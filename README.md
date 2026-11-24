@@ -10,8 +10,10 @@ Requires Python 3.12, [uv](https://docs.astral.sh/uv/) and Docker.
 
 ```powershell
 docker compose up -d --wait      # Postgres 16 + pgvector on localhost:54329 (user/pw/db: rav/rav/rav_ai)
-uv sync
-uv run pytest                    # needs the Postgres container; creates/drops throw-away databases
+uv sync --all-packages           # one uv workspace: rav-ai + packages/textnorm + packages/evals
+uv run pytest                    # rav-ai (needs the Postgres container; throw-away DBs)
+uv run pytest packages/textnorm  # normalization / citations library
+uv run pytest packages/evals     # answer schema + verifier + eval runner
 uv run ruff check .
 ```
 
@@ -57,14 +59,14 @@ uv run rav-export --purpose train --out train.jsonl           # export gate: can
 | `unresolved_links` | Sefaria links that could not be resolved, with reason (gap report) |
 | `quote_spans`, `annotations`, `cards`, `card_dependencies` | empty, for later stages (quotations, abbreviation candidates, AI analysis cards with `stale`) |
 
-### Normalized forms (`src/rav_ai/normalize.py`)
+### Normalized forms (`src/rav_ai/normalize.py` = thin wrapper over `packages/textnorm`)
 
-- **A**: markup/entities/footnotes removed, niqqud and te'amim removed, geresh/gershayim/quote/dash
-  variants unified, presentation forms decomposed, whitespace collapsed. Spelling (ktiv male/haser)
-  is *not* altered; abbreviations are *not* expanded.
-- **B**: A without any punctuation (maqaf/dash → space); tokenizable on whitespace (search form).
-- **Offset maps** (`offsets_a/b`): zlib'd varint chunk lists `(raw gap, n_len, r_len)`;
-  `OffsetMap.from_bytes(b).to_raw(ns, ne)` returns the exact raw `[start, end)` for a normalized range.
+- **A** = `textnorm.normalize(raw, "A", markup="sefaria")`: Sefaria tags/entities/footnotes removed
+  (`<br>` -> space), niqqud/te'amim removed, final letters folded, glyph variants unified.
+- **B** = `normalize(raw, "B", plene="double", markup="sefaria")`: A without punctuation, doubled
+  vav/yod collapsed. Never `plene="vav"`; abbreviations are never expanded; raw text is never changed.
+- **Offset maps** (`offsets_a/b`): `textnorm.offsets` compact serialization (zlib'd varint spans);
+  `OffsetMap.from_bytes(b).to_raw(ns, ne)` gives the exact raw `[start, end)`.
 
 ### Edges
 

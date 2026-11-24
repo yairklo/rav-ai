@@ -3,10 +3,12 @@
 #   can_display_public  -> text may be shown to the public (deployment_mode = public)
 #   can_train           -> may be used in model training/fine-tuning data
 # Flags are stored on `versions` and ENFORCED at display/export time; ingest never filters.
-# Matching is case-insensitive on Sefaria's `license` string. Unlisted or missing => [unknown]
+# Matching: case/space-insensitive; exact key or `aliases`, else the longest key that is a
+# prefix at a '-' boundary ("CC-BY-SA 3.0 Unported" -> cc-by-sa). Unlisted or missing => [unknown]
 # (fail closed). Edit and run `rav-ingest recompute-flags` to re-apply without re-importing.
 
 [licenses."public domain"]
+aliases = ["pd", "public domain mark", "cc-pdm"]
 can_index = true
 can_display_public = true
 can_train = true
@@ -25,6 +27,11 @@ can_train = true
 can_index = true
 can_display_public = true
 can_train = true     # share-alike: legal review before releasing a trained model
+
+[licenses."cc-by-nc-sa"]   # more specific than cc-by-nc; same restrictions
+can_index = true
+can_display_public = false
+can_train = false
 
 [licenses."cc-by-nc"]
 can_index = true

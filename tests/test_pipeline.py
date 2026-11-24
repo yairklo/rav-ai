@@ -3,7 +3,7 @@ import json
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
-from conftest import BER, HEB1, MB, RASHI, SA, build_export
+from export_fixture import BER, HEB1, MB, RASHI, SA, build_export
 from rav_ai.config import ROOT
 from rav_ai.db.models import Version
 from rav_ai.ingest.links import ingest_links
@@ -211,3 +211,17 @@ def test_policy_file_defaults():
     assert not p.evaluate("Copyrighted").can_index
     assert p.evaluate("Public Domain").can_train and p.evaluate("cc0").can_display_public
     assert p.evaluate(None) == p.evaluate("something-new")  # fail closed
+
+
+def test_license_prefix_and_aliases():
+    from rav_ai.config import LicensePolicy
+
+    p = LicensePolicy.load()
+    assert p.match("CC-BY-SA 3.0 Unported") == "cc-by-sa" and p.evaluate("CC-BY-SA 3.0").can_train
+    assert p.match("CC-BY-NC-SA 4.0") == "cc-by-nc-sa"  # longest prefix, not cc-by-nc / cc-by
+    assert not p.evaluate("CC-BY-NC 4.0 International").can_train
+    assert p.match("CC-BY 4.0") == "cc-by" and p.match("CC0 1.0") == "cc0"
+    assert (
+        p.evaluate("PD") == p.evaluate("Public Domain") and p.match("cc-bypass") == "unknown"
+    )  # '-' boundary
+    assert p.match("Copyrighted") == "copyrighted" and p.match("") == "unknown"

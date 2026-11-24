@@ -7,6 +7,9 @@ dependencies = [
     "sqlalchemy>=2.0",
     "alembic>=1.13",
     "httpx>=0.27",
+    "psycopg[binary]>=3.2",
+    "tiktoken>=0.8",
+    "textnorm",
 ]
 
 [project.scripts]
@@ -19,7 +22,14 @@ rav-pilot = "rav_ai.cli.pilot:main"
 rav-token-stats = "rav_ai.cli.token_stats:main"
 
 [dependency-groups]
-dev = ["pytest>=8", "ruff>=0.6"]
+dev = ["pytest>=8", "hypothesis>=6", "ruff>=0.6"]
+
+[tool.uv.workspace]
+members = ["packages/textnorm", "packages/evals"]
+
+[tool.uv.sources]
+textnorm = { workspace = true }
+rav-evals = { workspace = true }
 
 [build-system]
 requires = ["hatchling"]
@@ -31,10 +41,12 @@ packages = ["src/rav_ai"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-src = ["src", "tests"]
+src = ["src", "tests", "packages/textnorm/src", "packages/evals/src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "--import-mode=importlib"
+pythonpath = ["tests"]
