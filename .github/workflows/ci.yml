@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  discover:
+    name: Discover packages
+    runs-on: ubuntu-latest
+    outputs:
+      packages: ${{ steps.find.outputs.packages }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: find
+        run: |
+          packages=$(find packages -mindepth 2 -maxdepth 2 -name pyproject.toml -printf '%h\n' \
+            | sort | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          echo "packages=$packages" >> "$GITHUB_OUTPUT"
+          echo "Discovered: $packages"
+
+  test:
+    name: ${{ matrix.package }}
+    needs: discover
+    if: needs.discover.outputs.packages != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJSON(needs.discover.outputs.packages) }}
+    defaults:
+      run:
+        working-directory: ${{ matrix.package }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: ${{ matrix.package }}/uv.lock
+
+      - name: Install package with dev dependencies
+        run: uv sync --dev
+
+      - name: Ruff lint
+        run: uv run ruff check .
+
+      - name: Ruff format check
+        run: uv run ruff format --check .
+
+      - name: Pytest
+        run: uv run pytest
