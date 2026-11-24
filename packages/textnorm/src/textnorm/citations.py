@@ -46,7 +46,7 @@ def _tables():
     }.items():  # fmt: skip
         if en in {x["en"] for x in d["bavli"]}:
             bavli.setdefault(_f(abbr), en)
-    mishnah = {_f(x["he"]): x["en"].removeprefix("Mishnah ") for x in d["mishnah"]}
+    mishnah = {_f(x["he"]): x["en"] for x in d["mishnah"]}
     rambam = {_f(x["he"]): x["en"] for x in d["rambam"]}
     rambam_alias = {
         "חנוכה": "Scroll of Esther and Hanukkah", "מגילה": "Scroll of Esther and Hanukkah",
@@ -66,6 +66,17 @@ def _tables():
 _NUM = r"(?:\d+|[א-ת]+(?:\"[א-ת]+)?|[א-ט]'[א-ת\"]+)"
 _PRE_NUM = re.compile(r"^([א-ת])[\"']([א-ת]+)$")
 _AMUD = {'ע"א': "a", 'ע"ב': "b", "עא": "a", "עב": "b", "ע'א": "a", "ע'ב": "b"}
+
+
+_OTHER_WORKS = {
+    _f(w)
+    for w in (
+        "טור", "הטור", 'רמ"א', 'ש"ך', 'ט"ז', 'ב"י', 'מג"א', 'פמ"ג', 'ביה"ל', 'ערוה"ש', 'ב"ח',
+        'ד"מ', 'באה"ט', 'שעה"צ', "בית יוסף", "דרכי משה", "באר היטב", "ביאור הלכה", "שער הציון",
+        "מגן אברהם", "טורי זהב", "שפתי כהן", "ערוך השולחן", "פרי מגדים", "חיי אדם", "כף החיים",
+        "שערי תשובה", "בית חדש", 'חק"י',
+    )
+}  # fmt: skip
 
 
 class _Tok:
@@ -185,6 +196,8 @@ class _Parser:
         elif self.tok(k) == "עמוד" and self.tok(k + 1) in ("א", "ב"):
             amud, explicit = "a" if self.tok(k + 1) == "א" else "b", True
             k += 2
+        if re.match(r"^פ[\"']", dt.t) and not (had_daf or explicit):
+            return None  # פ"ב is "chapter 2" (or 82 only with דף / explicit amud)
         conf = 0.6
         conf += 0.25 if explicit else (0.05 if amud else 0.0)
         conf += 0.1 if had_daf else 0.0
@@ -233,10 +246,10 @@ class _Parser:
         if not mi:
             return None
         k += mi[1]
-        return (i, k, f"Mishnah {title} {ch[0]}:{mi[0]}", 0.9 if explicit else 0.6, "mishnah",
+        return (i, k, f"{title} {ch[0]}:{mi[0]}", 0.9 if explicit else 0.6, "mishnah",
                 {"tractate": title, "chapter": ch[0], "mishnah": mi[0]})  # fmt: skip
 
-    def sa_like(self, i: int):
+    def sa_like(self, i: int, other: bool = False):
         j = i
         work = None
         if self.work(j, ("שולחנ", "שלחנ")) and self.tok(j + 1) == "ערוכ":
@@ -254,7 +267,8 @@ class _Parser:
                 part, j = self.sa[w], j + n
                 break
         if (
-            work is None
+            not other
+            and work is None
             and part is None
             and not (self.context and self.context.startswith("Shulchan Arukh,"))
         ):
@@ -267,15 +281,22 @@ class _Parser:
         k = j + 2
         parts: dict = {"siman": siman}
         seif = sk = None
-        if self.tok(k) in ('ס"ק', "סק") and self.number(k + 1):
-            sk, k = self.number(k + 1), k + 2
-        else:
-            r = self.prefixed(k, "ס", ("סעיפ", "ס'"))
-            if r:
-                seif, k = r[0], k + r[1]
+        for _ in range(2):  # סעיף and/or ס"ק, in either order
+            if sk is None and self.tok(k) in ('ס"ק', "סק") and self.number(k + 1):
+                sk, k = self.number(k + 1), k + 2
+            elif seif is None and self.tok(k) not in ('ס"ק', "סק"):
+                r = self.prefixed(k, "ס", ("סעיפ", "ס'"))
+                if r:
+                    seif, k = r[0], k + r[1]
+        if other:
+            return (i, k, None, 0.5, "other_work", {**parts, "seif": seif, "seif_katan": sk})
         if work == "mb":
-            ref = f"Mishnah Berurah {siman}" + (f":{sk}" if sk else "")
-            conf = 0.9 if sk else 0.7
+            # Sefaria addresses the Mishnah Berurah as siman:se'if-katan. A plain se'if is
+            # kept in the id too (as requested) but at lower confidence: it may not be the
+            # same number as the se'if katan.
+            last = sk or seif
+            ref = f"Mishnah Berurah {siman}" + (f":{last}" if last else "")
+            conf = 0.9 if sk else (0.6 if seif else 0.7)
             kind = "mishnah_berurah"
             parts.update(seif_katan=sk, seif=seif)
         else:
@@ -291,6 +312,47 @@ class _Parser:
             kind = "shulchan_arukh"
             parts.update(seif=seif, part=hp)
         return (i, k, ref, min(conf, 0.97), kind, parts)
+
+    def other_work(self, i: int):
+        """רמ"א / ש"ך / ט"ז / טור ... סי' X: a work we do not resolve -> id None, not שו"ע."""
+        for n in (2, 1):
+            w = " ".join(self.tok(i + k) for k in range(n))
+            for pre in range(3):
+                if w[pre:] in _OTHER_WORKS and all(c in "ובהכלמש" for c in w[:pre]):
+                    r = self.sa_like(i + n, other=True)
+                    if r:
+                        return (i, r[1], None, 0.5, "other_work", {**r[5], "work": w[pre:]})
+                    return None
+        return None
+
+    def yerushalmi_ref(self, i: int):
+        """ירושלמי <tractate> [פרק/הלכה/דף]: recognized but not resolved (id None)."""
+        j = i
+        if self.tok(j) == "תלמוד" and self.work(j + 1, ("ירושלמי",)):
+            j += 1
+        if not self.work(j, ("ירושלמי", "ירו'", "ירוש'")):
+            return None
+        j += 1
+        if self.tok(j) in ("מסכת", "במסכת"):
+            j += 1
+        hit = self.lookup_title(self.mishnah, j) or self.lookup_title(self.bavli, j)
+        if not hit:
+            return None
+        k = j + hit[1]
+        ch = self.chapter(k)
+        if ch:
+            k += ch[1]
+            hl = self.prefixed(k, "ה", ("הלכה", "הל'"))
+            if hl:
+                k += hl[1]
+        else:
+            if self.tok(k) in ("דפ", "ד'"):
+                k += 1
+            if self.number(k):
+                k += 1
+                if self.tok(k) in _AMUD:
+                    k += 1
+        return (i, k, None, 0.5, "yerushalmi", {"tractate": hit[0]})
 
     def rambam_ref(self, i: int):
         j = i
@@ -335,7 +397,15 @@ class _Parser:
     def run(self) -> list[Citation]:
         out: list[Citation] = []
         i = 0
-        grammars = (self.rambam_ref, self.sa_like, self.mishnah_ref, self.bavli_ref, self.bare_daf)
+        grammars = (
+            self.rambam_ref,
+            self.sa_like,
+            self.other_work,
+            self.yerushalmi_ref,
+            self.mishnah_ref,
+            self.bavli_ref,
+            self.bare_daf,
+        )
         while i < len(self.toks):
             best = None
             for g in grammars:

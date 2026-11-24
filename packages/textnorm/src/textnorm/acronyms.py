@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 from importlib import resources
 from pathlib import Path
@@ -20,8 +20,10 @@ _TRUNC_RE = re.compile(r"(?<![\w\"'])([א-ת]{1,6}')(?![\w\"])")
 @dataclass(frozen=True)
 class Expansion:
     text: str
-    domain: str
+    domain: str  # most likely domain: talmud | halakha | responsa | general
     source: str
+    prior: dict[str, float] = field(default_factory=dict, compare=False, hash=False)
+    # prior[domain] in 0..1: how common this expansion is in each domain (hand-estimated)
 
 
 @dataclass(frozen=True)
@@ -59,7 +61,7 @@ def load_dictionary(path: str | Path | None = None) -> Dictionary:
     for e in json.loads(raw)["entries"]:
         lst = out.setdefault(_key(e["abbr"]), [])
         for x in e["expansions"]:
-            ex = Expansion(x, e["domain"], e["source"])
+            ex = Expansion(x["text"], x["domain"], e["source"], dict(x["prior"]))
             if ex not in lst:
                 lst.append(ex)
     return {k: tuple(v) for k, v in out.items()}
@@ -80,6 +82,24 @@ def lookup(token: str, dictionary: Dictionary | None = None) -> tuple[str, tuple
         if len(k) - n >= 2 and all(c in _PREFIXES for c in k[:n]) and k[n:] in d:
             return k[:n], d[k[n:]]
     return "", ()
+
+
+DOMAINS = ("talmud", "halakha", "responsa", "general")
+
+
+def rank_candidates(
+    abbr: str, context_domain: str, dictionary: Dictionary | None = None
+) -> list[Expansion]:
+    """Order the possible expansions of ``abbr`` by their prior in ``context_domain``.
+
+    Only sorts: nothing is chosen or expanded in text. ``context_domain`` is one of ``DOMAINS``.
+    Ties keep dictionary order. Unknown abbreviations give ``[]``; clitic prefixes are handled
+    as in ``find_acronyms``.
+    """
+    if context_domain not in DOMAINS:
+        raise ValueError(f"context_domain must be one of {DOMAINS}, got {context_domain!r}")
+    _, exps = lookup(abbr, dictionary)
+    return sorted(exps, key=lambda x: -x.prior.get(context_domain, 0.0))
 
 
 def _numeral_like(tok: str) -> bool:
