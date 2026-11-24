@@ -1,0 +1,78 @@
+# DRAFT - requires human review before use as ground truth.
+# No ref below has been verified. Every "TODO" value is a placeholder that a human
+# must fill in with a canonical ref (as stored in the corpus). The runner skips checks
+# that still contain placeholders and reports them as such.
+version: "0.0.1-draft"
+status: draft
+description: "Hilkhot Hanukkah pilot - 3 example questions (DRAFT, unreviewed)."
+questions:
+  - id: hanukkah-001
+    status: draft
+    question: "באיזה זמן מדליקים נרות חנוכה?"
+    category: direct_source
+    difficulty: easy
+    required_refs:
+      - "TODO: ref קנוני של הסוגיה/הסעיף בנוגע לזמן ההדלקה"
+    required_sides: []
+    rubric:
+      - id: cites-required-ref
+        description: "התשובה מצטטת את המקור הקנוני של זמן ההדלקה"
+        kind: cites_ref
+        ref: "TODO: אותו ref כמו ב-required_refs"
+      - id: verifier-clean
+        description: "כל הציטוטים עוברים את המאמת הדטרמיניסטי"
+        kind: verifier_passes
+      - id: answers-the-question
+        description: "התשובה נותנת זמן ברור להדלקה ולא רק מפנה למקור"
+        kind: llm
+    notes: "TODO(human): לאשר ניסוח שאלה, refs ורובריקה."
+
+  - id: hanukkah-002
+    status: draft
+    question: "מה מחלוקת בית שמאי ובית הלל בנוגע לסדר הדלקת הנרות במהלך החג?"
+    category: dispute
+    difficulty: medium
+    required_refs:
+      - "TODO: ref קנוני של סוגיית 'בית שמאי אומרים...' בנוגע להדלקה"
+    required_sides:
+      - label: "בית שמאי"
+        terms: ["בית שמאי"]
+      - label: "בית הלל"
+        terms: ["בית הלל"]
+    rubric:
+      - id: both-sides
+        description: "התשובה מזכירה את שתי הדעות בשמן"
+        kind: mentions_all
+        terms: ["בית שמאי", "בית הלל"]
+      - id: no-unmarked-system-ruling
+        description: "אם התשובה מכריעה, ההכרעה מסומנת כמסקנת מערכת"
+        kind: llm
+      - id: verifier-clean
+        description: "כל הציטוטים עוברים את המאמת הדטרמיניסטי"
+        kind: verifier_passes
+    notes: "TODO(human): לאמת שהמחלוקת מנוסחת נכון ולהשלים refs וצדדים נוספים אם יש."
+
+  - id: hanukkah-003
+    status: draft
+    question: "האם אפשר לצאת ידי חובה בהדלקת נרות חנוכה חשמליים?"
+    category: modern
+    difficulty: hard
+    required_refs:
+      - "TODO: ref(ים) קנוניים של מקורות העוסקים בדין נר חנוכה/שמן/פתילה שמהם נגזרת השאלה"
+    required_sides:
+      - label: "TODO: צד ראשון במחלוקת (מתיר/מכשיר)"
+        terms: []
+      - label: "TODO: צד שני במחלוקת (אוסר/פוסל)"
+        terms: []
+    rubric:
+      - id: marks-as-system-conclusion
+        description: "מכיוון שאין מקור ישיר, כל מסקנה מסומנת כ-system_conclusion או chidush"
+        kind: has_claim_type
+        claim_type: system_conclusion
+      - id: no-psak
+        description: "התשובה לא מציגה את עצמה כפסק למעשה"
+        kind: llm
+      - id: verifier-clean
+        description: "כל הציטוטים עוברים את המאמת הדטרמיניסטי"
+        kind: verifier_passes
+    notes: "TODO(human): להחליט אילו דעות ומקורות רלוונטיים, ולהשלים. אל תסתמך על ניסוח הצדדים כאן."
