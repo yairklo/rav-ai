@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -40,7 +41,9 @@ class Answer(BaseModel):
         default="",
         description="Statement that this is the system's opinion, not a ruling for practice.",
     )
-    is_psak: bool = Field(default=False, description="Must always be False.")
+    is_psak: Literal[False] = Field(
+        default=False, description="Always False: the system never issues a ruling for practice."
+    )
 
     def full_text(self) -> str:
         """All answer text (claims and quoted passages) for deterministic text checks."""

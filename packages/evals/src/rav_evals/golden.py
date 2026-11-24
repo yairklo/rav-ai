@@ -40,7 +40,7 @@ RubricKind = Literal[
     "mentions_any",  # params: terms
     "mentions_all",  # params: terms
     "mentions_none",  # params: terms
-    "has_claim_type",  # params: claim_type
+    "has_claim_type",  # params: claim_types (any-of)
     "verifier_passes",  # no params
     "llm",  # judged by an LLM judge; params unused
 ]
@@ -54,7 +54,9 @@ class RubricItem(BaseModel):
     kind: RubricKind
     ref: str | None = None
     terms: list[str] = Field(default_factory=list)
-    claim_type: str | None = None
+    claim_types: list[str] = Field(
+        default_factory=list, description="has_claim_type: any of these claim types suffices."
+    )
 
 
 class GoldenQuestion(BaseModel):

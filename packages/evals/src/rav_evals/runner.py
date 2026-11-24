@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal, Protocol
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 from .golden import GoldenQuestion, GoldenSet, RubricItem, is_placeholder
 from .schema import Answer, ClaimType
@@ -25,6 +25,7 @@ from .verifier import (
 )
 
 CheckStatus = Literal["passed", "failed", "skipped", "pending_judge"]
+QuestionStatus = Literal["passed", "failed", "pending", "error"]
 
 
 class RunOutput(BaseModel):
@@ -75,15 +76,22 @@ class QuestionResult(BaseModel):
     checks: list[CheckResult] = []
     output: RunOutput | None = None
 
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def status(self) -> QuestionStatus:
+        """error: answer fn raised. failed: verifier or a check failed. pending: nothing failed
+        but some items still await the judge (NOT counted as passed). passed: all else."""
+        if self.error is not None or self.verification is None:
+            return "error"
+        if not self.verification.passed or any(c.status == "failed" for c in self.checks):
+            return "failed"
+        if any(c.status == "pending_judge" for c in self.checks):
+            return "pending"
+        return "passed"
+
     @property
     def passed(self) -> bool:
-        """Passed = ran without error, verifier clean, no failed checks (skips don't fail)."""
-        return (
-            self.error is None
-            and self.verification is not None
-            and self.verification.passed
-            and all(c.status != "failed" for c in self.checks)
-        )
+        return self.status == "passed"
 
 
 class EvalReport(BaseModel):
@@ -93,23 +101,33 @@ class EvalReport(BaseModel):
     results: list[QuestionResult]
 
     def summary(self) -> dict[str, Any]:
-        n = len(self.results)
-        by_cat: dict[str, list[bool]] = defaultdict(list)
+        def rates(rs: list[QuestionResult]) -> dict[str, Any]:
+            c = Counter(r.status for r in rs)
+            decided = len(rs) - c["pending"]
+            return {
+                "questions": len(rs),
+                "passed": c["passed"],
+                "failed": c["failed"],
+                "pending": c["pending"],
+                "errors": c["error"],
+                # pending counts as not passed
+                "pass_rate": c["passed"] / len(rs) if rs else None,
+                # pending questions left out of the denominator
+                "pass_rate_excluding_pending": c["passed"] / decided if decided else None,
+            }
+
+        by_cat: dict[str, list[QuestionResult]] = defaultdict(list)
         codes: Counter[str] = Counter()
         statuses: Counter[str] = Counter()
         for r in self.results:
-            by_cat[r.category].append(r.passed)
+            by_cat[r.category].append(r)
             if r.verification:
                 codes.update(f.check + ":" + f.code for f in r.verification.failures)
             statuses.update(c.status for c in r.checks)
         return {
-            "questions": n,
-            "passed": sum(r.passed for r in self.results),
-            "errors": sum(r.error is not None for r in self.results),
+            **rates(self.results),
             "draft_questions": sum(r.question_status == "draft" for r in self.results),
-            "by_category": {
-                c: {"questions": len(v), "passed": sum(v)} for c, v in sorted(by_cat.items())
-            },
+            "by_category": {c: rates(v) for c, v in sorted(by_cat.items())},
             "verifier_failure_codes": dict(sorted(codes.items())),
             "check_statuses": dict(sorted(statuses.items())),
         }
@@ -127,17 +145,25 @@ class EvalReport(BaseModel):
             f"Started: {self.started_at}",
             "",
             f"- Questions: {s['questions']} (draft: {s['draft_questions']})",
-            f"- Passed: {s['passed']}  |  Errors: {s['errors']}",
+            f"- Passed: {s['passed']}  |  Failed: {s['failed']}  |  Pending judge: {s['pending']}"
+            f"  |  Errors: {s['errors']}",
+            f"- Pass rate: {_pct(s['pass_rate'])} (pending counted as not passed); "
+            f"excluding pending: {_pct(s['pass_rate_excluding_pending'])}",
             f"- Check statuses: {s['check_statuses'] or '-'}",
             f"- Verifier failure codes: {s['verifier_failure_codes'] or '-'}",
             "",
-            "| Category | Questions | Passed |",
-            "|---|---|---|",
+            "| Category | Questions | Passed | Failed | Pending | Errors | Pass rate "
+            "| Excl. pending |",
+            "|---|---|---|---|---|---|---|---|",
         ]
         for cat, v in s["by_category"].items():
-            lines.append(f"| {cat} | {v['questions']} | {v['passed']} |")
+            lines.append(
+                f"| {cat} | {v['questions']} | {v['passed']} | {v['failed']} | {v['pending']} | "
+                f"{v['errors']} | {_pct(v['pass_rate'])} | "
+                f"{_pct(v['pass_rate_excluding_pending'])} |"
+            )
         for r in self.results:
-            lines += ["", f"## {r.question_id} - {'PASS' if r.passed else 'FAIL'}"]
+            lines += ["", f"## {r.question_id} - {r.status.upper()}"]
             lines.append(f"{r.category} / {r.difficulty} / {r.question_status}")
             if r.error:
                 lines.append(f"- **Error:** {r.error.splitlines()[-1] if r.error else ''}")
@@ -156,6 +182,10 @@ class EvalReport(BaseModel):
         jp.write_text(self.to_json(), encoding="utf-8")
         mp.write_text(self.to_markdown(), encoding="utf-8")
         return jp, mp
+
+
+def _pct(x: float | None) -> str:
+    return "n/a" if x is None else f"{x:.0%}"
 
 
 def _has_placeholder(values: list[str | None]) -> bool:
@@ -195,11 +225,15 @@ def _run_check(
         return res("passed" if ok else "failed", "" if ok else f"{item.ref!r} not cited")
     if k == "has_claim_type":
         try:
-            ct = ClaimType(item.claim_type or "")
+            wanted = {ClaimType(t) for t in item.claim_types}
         except ValueError:
-            return res("skipped", f"unknown claim_type {item.claim_type!r}")
-        ok = any(c.type is ct for c in out.answer.claims)
-        return res("passed" if ok else "failed", "" if ok else f"no claim of type {ct}")
+            return res("skipped", f"unknown claim_types {item.claim_types!r}")
+        if not wanted:
+            return res("skipped", "no claim_types given")
+        ok = any(c.type in wanted for c in out.answer.claims)
+        return res(
+            "passed" if ok else "failed", "" if ok else f"no claim of types {sorted(wanted)}"
+        )
     if k in ("mentions_any", "mentions_all", "mentions_none"):
         if not item.terms or _has_placeholder(list(item.terms)):
             return res("skipped", "no terms / placeholder")

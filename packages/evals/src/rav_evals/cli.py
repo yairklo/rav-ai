@@ -29,8 +29,11 @@ def main(argv: list[str] | None = None) -> int:
     report = run_eval(load_golden(args.questions), answer_fn, store)
     jp, mp = report.write(args.out_dir)
     s = report.summary()
-    print(f"{s['passed']}/{s['questions']} passed; reports: {jp}, {mp}")
-    return 0 if s["passed"] == s["questions"] else 1
+    print(
+        f"{s['passed']}/{s['questions']} passed, {s['pending']} pending judge, "
+        f"{s['failed']} failed, {s['errors']} errors; reports: {jp}, {mp}"
+    )
+    return 1 if s["failed"] or s["errors"] else 0
 
 
 if __name__ == "__main__":

@@ -33,7 +33,7 @@ questions:
       - {id: both, description: d, kind: mentions_all, terms: ["בית שמאי", "בית הלל"]}
       - {id: none, description: d, kind: mentions_none, terms: ["אסור"]}
       - {id: cite, description: d, kind: cites_ref, ref: "R 1"}
-      - {id: ctype, description: d, kind: has_claim_type, claim_type: system_conclusion}
+      - {id: ctype, description: d, kind: has_claim_type, claim_types: [chidush, system_conclusion]}
       - {id: ver, description: d, kind: verifier_passes}
       - {id: j, description: d, kind: llm}
 """
@@ -74,17 +74,20 @@ def status_map(result):
 
 def test_draft_file_loads_and_is_marked_draft():
     g = load_golden(DRAFT)
-    assert g.status == "draft" and len(g.questions) == 3
+    assert g.status == "draft" and len(g.questions) == 5
     assert all(q.status == "draft" for q in g.questions)
     # no invented refs: every required ref is a placeholder
     assert all(is_placeholder(r) for q in g.questions for r in q.required_refs)
-    assert {q.category.value for q in g.questions} <= {
+    assert {q.category.value for q in g.questions} == {
         "direct_source",
         "dispute",
         "modern",
         "false_premise",
         "out_of_corpus",
     }
+    q3 = next(q for q in g.questions if q.id == "hanukkah-003")
+    claim_types = next(i for i in q3.rubric if i.kind == "has_claim_type").claim_types
+    assert set(claim_types) == {"system_conclusion", "chidush"}
 
 
 def test_invalid_category_rejected():
@@ -103,7 +106,7 @@ def test_run_good_answer(golden):
     report = run_eval(golden, good_output, STORE)
     r = report.results[0]
     st = status_map(r)
-    assert r.passed
+    assert r.status == "pending" and not r.passed  # judge item pending
     assert st["j"] == "pending_judge"
     assert all(v == "passed" for k, v in st.items() if k != "j")
 
@@ -149,7 +152,7 @@ def test_placeholders_are_skipped_not_failed():
         assert "failed" not in {
             c.status for c in r.checks if c.id.startswith(("required_", "side:"))
         }
-    assert report.summary()["draft_questions"] == 3
+    assert report.summary()["draft_questions"] == 5
 
 
 def test_report_json_and_markdown(golden, tmp_path):
@@ -172,7 +175,8 @@ def test_report_json_and_markdown(golden, tmp_path):
     jp, mp = report.write(tmp_path / "out")
     data = json.loads(jp.read_text(encoding="utf-8"))
     assert data["summary"]["verifier_failure_codes"] == {"V2:quote_not_in_source": 1}
-    assert data["summary"]["by_category"]["dispute"] == {"questions": 1, "passed": 0}
+    dispute = data["summary"]["by_category"]["dispute"]
+    assert (dispute["questions"], dispute["passed"], dispute["failed"]) == (1, 0, 1)
     md = mp.read_text(encoding="utf-8")
     assert "V2:quote_not_in_source" in md and "FAIL" in md
 
@@ -209,3 +213,39 @@ def test_cli(tmp_path, monkeypatch, golden):
     )
     assert code == 1  # required ref etc. not satisfied
     assert (tmp_path / "o" / "report.json").exists() and (tmp_path / "o" / "report.md").exists()
+
+
+def test_pending_vs_passed_and_rates(golden, tmp_path):
+    def judge_pass(_q, _o, _i):
+        return JudgeVerdict(passed=True)
+
+    class J:
+        judge = staticmethod(judge_pass)
+
+    pending = run_eval(golden, good_output, STORE).results[0]
+    passed = run_eval(golden, good_output, STORE, judge=J()).results[0]
+    assert (pending.status, passed.status) == ("pending", "passed")
+
+    def boom(_q):
+        raise RuntimeError("x")
+
+    report = run_eval(golden, good_output, STORE)
+    report.results += [passed, run_eval(golden, boom, STORE).results[0]]
+    s = report.summary()
+    assert (s["questions"], s["passed"], s["pending"], s["errors"], s["failed"]) == (3, 1, 1, 1, 0)
+    assert s["pass_rate"] == pytest.approx(1 / 3)
+    assert s["pass_rate_excluding_pending"] == pytest.approx(1 / 2)
+    assert s["by_category"]["dispute"]["pending"] == 1
+    md = report.to_markdown()
+    assert "PENDING" in md and "excluding pending: 50%" in md
+    assert json.loads(report.to_json())["results"][0]["status"] == "pending"
+
+
+def test_has_claim_type_accepts_chidush(golden):
+    def chidush(_q):
+        out = good_output(_q)
+        out.answer.claims[-1] = Claim(type=ClaimType.CHIDUSH, text="x", flagged_as_system=True)
+        return out
+
+    st = status_map(run_eval(golden, chidush, STORE).results[0])
+    assert st["ctype"] == "passed"

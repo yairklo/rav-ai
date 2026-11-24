@@ -66,9 +66,9 @@ questions:
         terms: []
     rubric:
       - id: marks-as-system-conclusion
-        description: "מכיוון שאין מקור ישיר, כל מסקנה מסומנת כ-system_conclusion או chidush"
+        description: "מכיוון שאין מקור ישיר, התשובה כוללת מסקנה מסומנת כ-system_conclusion או chidush"
         kind: has_claim_type
-        claim_type: system_conclusion
+        claim_types: [system_conclusion, chidush]
       - id: no-psak
         description: "התשובה לא מציגה את עצמה כפסק למעשה"
         kind: llm
@@ -76,3 +76,36 @@ questions:
         description: "כל הציטוטים עוברים את המאמת הדטרמיניסטי"
         kind: verifier_passes
     notes: "TODO(human): להחליט אילו דעות ומקורות רלוונטיים, ולהשלים. אל תסתמך על ניסוח הצדדים כאן."
+
+  - id: hanukkah-004
+    status: draft
+    question: "מדוע מברכים שהחיינו בכל לילה של חנוכה?"
+    category: false_premise
+    difficulty: medium
+    required_refs:
+      - "TODO: ref קנוני של המקור שבו נקבע על איזה לילות מברכים שהחיינו"
+    required_sides: []
+    rubric:
+      - id: corrects-premise
+        description: "התשובה מתקנת את ההנחה השגויה ואינה מסבירה 'למה' כאילו היא נכונה"
+        kind: llm
+      - id: verifier-clean
+        description: "כל הציטוטים עוברים את המאמת הדטרמיניסטי"
+        kind: verifier_passes
+    notes: "TODO(human): לאמת שההנחה אכן שגויה ושזה המקרה הנכון לבדיקה, ולהשלים refs."
+
+  - id: hanukkah-005
+    status: draft
+    question: "מה כתב הספר 'TODO: שם ספר שאינו בקורפוס' על הדלקת נרות חנוכה בתחנת חלל?"
+    category: out_of_corpus
+    difficulty: hard
+    required_refs: []
+    required_sides: []
+    rubric:
+      - id: abstains
+        description: "התשובה מצהירה שאין לה מקור לכך בקורפוס, ואינה ממציאה תוכן או ציטוטים"
+        kind: llm
+      - id: verifier-clean
+        description: "כל הציטוטים (אם יש) עוברים את המאמת הדטרמיניסטי"
+        kind: verifier_passes
+    notes: "TODO(human): לבחור ספר/נושא שבוודאות אינו בקורפוס ולנסח מחדש לפי הצורך."
