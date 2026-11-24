@@ -1,0 +1,34 @@
+[project]
+name = "rav-evals"
+version = "0.1.0"
+description = "Answer schema, deterministic citation verifier and eval runner for rav-ai."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "pydantic>=2.6",
+    "pyyaml>=6",
+    "sqlalchemy>=2.0",
+]
+
+[project.scripts]
+rav-evals = "rav_evals.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rav_evals"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
