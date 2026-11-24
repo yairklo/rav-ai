@@ -2,7 +2,7 @@
 name = "rav-ai"
 version = "0.1.0"
 description = "Canonical corpus ingestion for a source-grounded halakhic Q&A system (Sefaria first)."
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.12"
 dependencies = [
     "sqlalchemy>=2.0",
     "alembic>=1.13",
