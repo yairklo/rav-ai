@@ -1,0 +1,748 @@
+{
+ "_comment": "Canonical title identifiers from Sefaria's public index API; no texts.",
+ "bavli": [
+  {
+   "en": "Berakhot",
+   "he": "ברכות"
+  },
+  {
+   "en": "Shabbat",
+   "he": "שבת"
+  },
+  {
+   "en": "Eruvin",
+   "he": "עירובין"
+  },
+  {
+   "en": "Pesachim",
+   "he": "פסחים"
+  },
+  {
+   "en": "Rosh Hashanah",
+   "he": "ראש השנה"
+  },
+  {
+   "en": "Yoma",
+   "he": "יומא"
+  },
+  {
+   "en": "Sukkah",
+   "he": "סוכה"
+  },
+  {
+   "en": "Beitzah",
+   "he": "ביצה"
+  },
+  {
+   "en": "Taanit",
+   "he": "תענית"
+  },
+  {
+   "en": "Megillah",
+   "he": "מגילה"
+  },
+  {
+   "en": "Moed Katan",
+   "he": "מועד קטן"
+  },
+  {
+   "en": "Chagigah",
+   "he": "חגיגה"
+  },
+  {
+   "en": "Yevamot",
+   "he": "יבמות"
+  },
+  {
+   "en": "Ketubot",
+   "he": "כתובות"
+  },
+  {
+   "en": "Nedarim",
+   "he": "נדרים"
+  },
+  {
+   "en": "Nazir",
+   "he": "נזיר"
+  },
+  {
+   "en": "Sotah",
+   "he": "סוטה"
+  },
+  {
+   "en": "Gittin",
+   "he": "גיטין"
+  },
+  {
+   "en": "Kiddushin",
+   "he": "קידושין"
+  },
+  {
+   "en": "Bava Kamma",
+   "he": "בבא קמא"
+  },
+  {
+   "en": "Bava Metzia",
+   "he": "בבא מציעא"
+  },
+  {
+   "en": "Bava Batra",
+   "he": "בבא בתרא"
+  },
+  {
+   "en": "Sanhedrin",
+   "he": "סנהדרין"
+  },
+  {
+   "en": "Makkot",
+   "he": "מכות"
+  },
+  {
+   "en": "Shevuot",
+   "he": "שבועות"
+  },
+  {
+   "en": "Avodah Zarah",
+   "he": "עבודה זרה"
+  },
+  {
+   "en": "Horayot",
+   "he": "הוריות"
+  },
+  {
+   "en": "Zevachim",
+   "he": "זבחים"
+  },
+  {
+   "en": "Menachot",
+   "he": "מנחות"
+  },
+  {
+   "en": "Chullin",
+   "he": "חולין"
+  },
+  {
+   "en": "Bekhorot",
+   "he": "בכורות"
+  },
+  {
+   "en": "Arakhin",
+   "he": "ערכין"
+  },
+  {
+   "en": "Temurah",
+   "he": "תמורה"
+  },
+  {
+   "en": "Keritot",
+   "he": "כריתות"
+  },
+  {
+   "en": "Meilah",
+   "he": "מעילה"
+  },
+  {
+   "en": "Tamid",
+   "he": "תמיד"
+  },
+  {
+   "en": "Niddah",
+   "he": "נדה"
+  }
+ ],
+ "mishnah": [
+  {
+   "en": "Mishnah Berakhot",
+   "he": "ברכות"
+  },
+  {
+   "en": "Mishnah Peah",
+   "he": "פאה"
+  },
+  {
+   "en": "Mishnah Demai",
+   "he": "דמאי"
+  },
+  {
+   "en": "Mishnah Kilayim",
+   "he": "כלאים"
+  },
+  {
+   "en": "Mishnah Sheviit",
+   "he": "שביעית"
+  },
+  {
+   "en": "Mishnah Terumot",
+   "he": "תרומות"
+  },
+  {
+   "en": "Mishnah Maasrot",
+   "he": "מעשרות"
+  },
+  {
+   "en": "Mishnah Maaser Sheni",
+   "he": "מעשר שני"
+  },
+  {
+   "en": "Mishnah Challah",
+   "he": "חלה"
+  },
+  {
+   "en": "Mishnah Orlah",
+   "he": "ערלה"
+  },
+  {
+   "en": "Mishnah Bikkurim",
+   "he": "ביכורים"
+  },
+  {
+   "en": "Mishnah Shabbat",
+   "he": "שבת"
+  },
+  {
+   "en": "Mishnah Eruvin",
+   "he": "עירובין"
+  },
+  {
+   "en": "Mishnah Pesachim",
+   "he": "פסחים"
+  },
+  {
+   "en": "Mishnah Shekalim",
+   "he": "שקלים"
+  },
+  {
+   "en": "Mishnah Yoma",
+   "he": "יומא"
+  },
+  {
+   "en": "Mishnah Sukkah",
+   "he": "סוכה"
+  },
+  {
+   "en": "Mishnah Beitzah",
+   "he": "ביצה"
+  },
+  {
+   "en": "Mishnah Rosh Hashanah",
+   "he": "ראש השנה"
+  },
+  {
+   "en": "Mishnah Ta'anit",
+   "he": "תענית"
+  },
+  {
+   "en": "Mishnah Megillah",
+   "he": "מגילה"
+  },
+  {
+   "en": "Mishnah Moed Katan",
+   "he": "מועד קטן"
+  },
+  {
+   "en": "Mishnah Chagigah",
+   "he": "חגיגה"
+  },
+  {
+   "en": "Mishnah Yevamot",
+   "he": "יבמות"
+  },
+  {
+   "en": "Mishnah Ketubot",
+   "he": "כתובות"
+  },
+  {
+   "en": "Mishnah Nedarim",
+   "he": "נדרים"
+  },
+  {
+   "en": "Mishnah Nazir",
+   "he": "נזיר"
+  },
+  {
+   "en": "Mishnah Sotah",
+   "he": "סוטה"
+  },
+  {
+   "en": "Mishnah Gittin",
+   "he": "גיטין"
+  },
+  {
+   "en": "Mishnah Kiddushin",
+   "he": "קידושין"
+  },
+  {
+   "en": "Mishnah Bava Kamma",
+   "he": "בבא קמא"
+  },
+  {
+   "en": "Mishnah Bava Metzia",
+   "he": "בבא מציעא"
+  },
+  {
+   "en": "Mishnah Bava Batra",
+   "he": "בבא בתרא"
+  },
+  {
+   "en": "Mishnah Sanhedrin",
+   "he": "סנהדרין"
+  },
+  {
+   "en": "Mishnah Makkot",
+   "he": "מכות"
+  },
+  {
+   "en": "Mishnah Shevuot",
+   "he": "שבועות"
+  },
+  {
+   "en": "Mishnah Eduyot",
+   "he": "עדיות"
+  },
+  {
+   "en": "Mishnah Avodah Zarah",
+   "he": "עבודה זרה"
+  },
+  {
+   "en": "Pirkei Avot",
+   "he": "אבות"
+  },
+  {
+   "en": "Mishnah Horayot",
+   "he": "הוריות"
+  },
+  {
+   "en": "Mishnah Zevachim",
+   "he": "זבחים"
+  },
+  {
+   "en": "Mishnah Menachot",
+   "he": "מנחות"
+  },
+  {
+   "en": "Mishnah Chullin",
+   "he": "חולין"
+  },
+  {
+   "en": "Mishnah Bekhorot",
+   "he": "בכורות"
+  },
+  {
+   "en": "Mishnah Arakhin",
+   "he": "ערכין"
+  },
+  {
+   "en": "Mishnah Temurah",
+   "he": "תמורה"
+  },
+  {
+   "en": "Mishnah Keritot",
+   "he": "כריתות"
+  },
+  {
+   "en": "Mishnah Meilah",
+   "he": "מעילה"
+  },
+  {
+   "en": "Mishnah Tamid",
+   "he": "תמיד"
+  },
+  {
+   "en": "Mishnah Middot",
+   "he": "מדות"
+  },
+  {
+   "en": "Mishnah Kinnim",
+   "he": "קינים"
+  },
+  {
+   "en": "Mishnah Kelim",
+   "he": "כלים"
+  },
+  {
+   "en": "Mishnah Oholot",
+   "he": "אהלות"
+  },
+  {
+   "en": "Mishnah Negaim",
+   "he": "נגעים"
+  },
+  {
+   "en": "Mishnah Parah",
+   "he": "פרה"
+  },
+  {
+   "en": "Mishnah Tahorot",
+   "he": "טהרות"
+  },
+  {
+   "en": "Mishnah Mikvaot",
+   "he": "מקואות"
+  },
+  {
+   "en": "Mishnah Niddah",
+   "he": "נדה"
+  },
+  {
+   "en": "Mishnah Makhshirin",
+   "he": "מכשירין"
+  },
+  {
+   "en": "Mishnah Zavim",
+   "he": "זבים"
+  },
+  {
+   "en": "Mishnah Tevul Yom",
+   "he": "טבול יום"
+  },
+  {
+   "en": "Mishnah Yadayim",
+   "he": "ידים"
+  },
+  {
+   "en": "Mishnah Oktzin",
+   "he": "עוקצים"
+  }
+ ],
+ "rambam": [
+  {
+   "en": "Mishneh Torah, Foundations of the Torah",
+   "he": "יסודי התורה"
+  },
+  {
+   "en": "Mishneh Torah, Human Dispositions",
+   "he": "דעות"
+  },
+  {
+   "en": "Mishneh Torah, Torah Study",
+   "he": "תלמוד תורה"
+  },
+  {
+   "en": "Mishneh Torah, Foreign Worship and Customs of the Nations",
+   "he": "עבודה זרה וחוקות הגויים"
+  },
+  {
+   "en": "Mishneh Torah, Repentance",
+   "he": "תשובה"
+  },
+  {
+   "en": "Mishneh Torah, Reading the Shema",
+   "he": "קריאת שמע"
+  },
+  {
+   "en": "Mishneh Torah, Prayer and the Priestly Blessing",
+   "he": "תפילה וברכת כהנים"
+  },
+  {
+   "en": "Mishneh Torah, Tefillin, Mezuzah and the Torah Scroll",
+   "he": "תפילין ומזוזה וספר תורה"
+  },
+  {
+   "en": "Mishneh Torah, Fringes",
+   "he": "ציצית"
+  },
+  {
+   "en": "Mishneh Torah, Blessings",
+   "he": "ברכות"
+  },
+  {
+   "en": "Mishneh Torah, Circumcision",
+   "he": "מילה"
+  },
+  {
+   "en": "Mishneh Torah, Sabbath",
+   "he": "שבת"
+  },
+  {
+   "en": "Mishneh Torah, Eruvin",
+   "he": "עירובין"
+  },
+  {
+   "en": "Mishneh Torah, Rest on the Tenth of Tishrei",
+   "he": "שביתת עשור"
+  },
+  {
+   "en": "Mishneh Torah, Rest on a Holiday",
+   "he": "שביתת יום טוב"
+  },
+  {
+   "en": "Mishneh Torah, Leavened and Unleavened Bread",
+   "he": "חמץ ומצה"
+  },
+  {
+   "en": "Mishneh Torah, Shofar, Sukkah and Lulav",
+   "he": "שופר וסוכה ולולב"
+  },
+  {
+   "en": "Mishneh Torah, Sheqel Dues",
+   "he": "שקלים"
+  },
+  {
+   "en": "Mishneh Torah, Sanctification of the New Month",
+   "he": "קידוש החודש"
+  },
+  {
+   "en": "Mishneh Torah, Fasts",
+   "he": "תעניות"
+  },
+  {
+   "en": "Mishneh Torah, Scroll of Esther and Hanukkah",
+   "he": "מגילה וחנוכה"
+  },
+  {
+   "en": "Mishneh Torah, Marriage",
+   "he": "אישות"
+  },
+  {
+   "en": "Mishneh Torah, Divorce",
+   "he": "גירושין"
+  },
+  {
+   "en": "Mishneh Torah, Levirate Marriage and Release",
+   "he": "יבום וחליצה"
+  },
+  {
+   "en": "Mishneh Torah, Virgin Maiden",
+   "he": "נערה בתולה"
+  },
+  {
+   "en": "Mishneh Torah, Woman Suspected of Infidelity",
+   "he": "סוטה"
+  },
+  {
+   "en": "Mishneh Torah, Forbidden Intercourse",
+   "he": "איסורי ביאה"
+  },
+  {
+   "en": "Mishneh Torah, Forbidden Foods",
+   "he": "מאכלות אסורות"
+  },
+  {
+   "en": "Mishneh Torah, Ritual Slaughter",
+   "he": "שחיטה"
+  },
+  {
+   "en": "Mishneh Torah, Oaths",
+   "he": "שבועות"
+  },
+  {
+   "en": "Mishneh Torah, Vows",
+   "he": "נדרים"
+  },
+  {
+   "en": "Mishneh Torah, Nazariteship",
+   "he": "נזירות"
+  },
+  {
+   "en": "Mishneh Torah, Appraisals and Devoted Property",
+   "he": "ערכים וחרמין"
+  },
+  {
+   "en": "Mishneh Torah, Diverse Species",
+   "he": "כלאים"
+  },
+  {
+   "en": "Mishneh Torah, Gifts to the Poor",
+   "he": "מתנות עניים"
+  },
+  {
+   "en": "Mishneh Torah, Heave Offerings",
+   "he": "תרומות"
+  },
+  {
+   "en": "Mishneh Torah, Tithes",
+   "he": "מעשרות"
+  },
+  {
+   "en": "Mishneh Torah, Second Tithes and Fourth Year's Fruit",
+   "he": "מעשר שני ונטע רבעי"
+  },
+  {
+   "en": "Mishneh Torah, First Fruits and other Gifts to Priests Outside the Sanctuary",
+   "he": "ביכורים ושאר מתנות כהונה שבגבולין"
+  },
+  {
+   "en": "Mishneh Torah, Sabbatical Year and the Jubilee",
+   "he": "שמיטה ויובל"
+  },
+  {
+   "en": "Mishneh Torah, The Chosen Temple",
+   "he": "בית הבחירה"
+  },
+  {
+   "en": "Mishneh Torah, Vessels of the Sanctuary and Those Who Serve Therein",
+   "he": "כלי המקדש והעובדין בו"
+  },
+  {
+   "en": "Mishneh Torah, Admission into the Sanctuary",
+   "he": "ביאת מקדש"
+  },
+  {
+   "en": "Mishneh Torah, Things Forbidden on the Altar",
+   "he": "איסורי המזבח"
+  },
+  {
+   "en": "Mishneh Torah, Sacrificial Procedure",
+   "he": "מעשה הקרבנות"
+  },
+  {
+   "en": "Mishneh Torah, Daily Offerings and Additional Offerings",
+   "he": "תמידים ומוספין"
+  },
+  {
+   "en": "Mishneh Torah, Sacrifices Rendered Unfit",
+   "he": "פסולי המוקדשין"
+  },
+  {
+   "en": "Mishneh Torah, Service on the Day of Atonement",
+   "he": "עבודת יום הכפורים"
+  },
+  {
+   "en": "Mishneh Torah, Trespass",
+   "he": "מעילה"
+  },
+  {
+   "en": "Mishneh Torah, Paschal Offering",
+   "he": "קרבן פסח"
+  },
+  {
+   "en": "Mishneh Torah, Festival Offering",
+   "he": "חגיגה"
+  },
+  {
+   "en": "Mishneh Torah, Firstlings",
+   "he": "בכורות"
+  },
+  {
+   "en": "Mishneh Torah, Offerings for Unintentional Transgressions",
+   "he": "שגגות"
+  },
+  {
+   "en": "Mishneh Torah, Offerings for Those with Incomplete Atonement",
+   "he": "מחוסרי כפרה"
+  },
+  {
+   "en": "Mishneh Torah, Substitution",
+   "he": "תמורה"
+  },
+  {
+   "en": "Mishneh Torah, Defilement by a Corpse",
+   "he": "טומאת מת"
+  },
+  {
+   "en": "Mishneh Torah, Red Heifer",
+   "he": "פרה אדומה"
+  },
+  {
+   "en": "Mishneh Torah, Defilement by Leprosy",
+   "he": "טומאת צרעת"
+  },
+  {
+   "en": "Mishneh Torah, Those Who Defile Bed or Seat",
+   "he": "מטמאי משכב ומושב"
+  },
+  {
+   "en": "Mishneh Torah, Other Sources of Defilement",
+   "he": "שאר אבות הטומאות"
+  },
+  {
+   "en": "Mishneh Torah, Defilement of Foods",
+   "he": "טומאת אוכלים"
+  },
+  {
+   "en": "Mishneh Torah, Vessels",
+   "he": "כלים"
+  },
+  {
+   "en": "Mishneh Torah, Immersion Pools",
+   "he": "מקואות"
+  },
+  {
+   "en": "Mishneh Torah, Damages to Property",
+   "he": "נזקי ממון"
+  },
+  {
+   "en": "Mishneh Torah, Theft",
+   "he": "גניבה"
+  },
+  {
+   "en": "Mishneh Torah, Robbery and Lost Property",
+   "he": "גזילה ואבידה"
+  },
+  {
+   "en": "Mishneh Torah, One Who Injures a Person or Property",
+   "he": "חובל ומזיק"
+  },
+  {
+   "en": "Mishneh Torah, Murderer and the Preservation of Life",
+   "he": "רוצח ושמירת נפש"
+  },
+  {
+   "en": "Mishneh Torah, Sales",
+   "he": "מכירה"
+  },
+  {
+   "en": "Mishneh Torah, Ownerless Property and Gifts",
+   "he": "זכייה ומתנה"
+  },
+  {
+   "en": "Mishneh Torah, Neighbors",
+   "he": "שכנים"
+  },
+  {
+   "en": "Mishneh Torah, Agents and Partners",
+   "he": "שלוחין ושותפין"
+  },
+  {
+   "en": "Mishneh Torah, Slaves",
+   "he": "עבדים"
+  },
+  {
+   "en": "Mishneh Torah, Hiring",
+   "he": "שכירות"
+  },
+  {
+   "en": "Mishneh Torah, Borrowing and Deposit",
+   "he": "שאלה ופיקדון"
+  },
+  {
+   "en": "Mishneh Torah, Creditor and Debtor",
+   "he": "מלווה ולווה"
+  },
+  {
+   "en": "Mishneh Torah, Plaintiff and Defendant",
+   "he": "טוען ונטען"
+  },
+  {
+   "en": "Mishneh Torah, Inheritances",
+   "he": "נחלות"
+  },
+  {
+   "en": "Mishneh Torah, The Sanhedrin and the Penalties within Their Jurisdiction",
+   "he": "סנהדרין והעונשין המסורין להם"
+  },
+  {
+   "en": "Mishneh Torah, Testimony",
+   "he": "עדות"
+  },
+  {
+   "en": "Mishneh Torah, Rebels",
+   "he": "ממרים"
+  },
+  {
+   "en": "Mishneh Torah, Mourning",
+   "he": "אבל"
+  },
+  {
+   "en": "Mishneh Torah, Kings and Wars",
+   "he": "מלכים ומלחמות"
+  }
+ ],
+ "shulchan_arukh": {
+  "OC": "Shulchan Arukh, Orach Chayim",
+  "YD": "Shulchan Arukh, Yoreh De'ah",
+  "EH": "Shulchan Arukh, Even HaEzer",
+  "CM": "Shulchan Arukh, Choshen Mishpat"
+ },
+ "mishnah_berurah": "Mishnah Berurah"
+}
