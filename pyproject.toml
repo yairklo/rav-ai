@@ -25,7 +25,7 @@ rav-token-stats = "rav_ai.cli.token_stats:main"
 dev = ["pytest>=8", "hypothesis>=6", "ruff>=0.6"]
 
 [tool.uv.workspace]
-members = ["packages/textnorm", "packages/evals"]
+members = ["packages/textnorm", "packages/evals", "packages/harness"]
 
 [tool.uv.sources]
 textnorm = { workspace = true }
@@ -41,7 +41,7 @@ packages = ["src/rav_ai"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-src = ["src", "tests", "packages/textnorm/src", "packages/evals/src"]
+src = ["src", "tests", "packages/textnorm/src", "packages/evals/src", "packages/harness/src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
