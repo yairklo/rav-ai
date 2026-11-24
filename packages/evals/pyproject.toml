@@ -2,7 +2,7 @@
 name = "rav-evals"
 version = "0.1.0"
 description = "Answer schema, deterministic citation verifier and eval runner for rav-ai."
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2.6",
     "pyyaml>=6",

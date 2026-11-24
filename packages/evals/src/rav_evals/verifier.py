@@ -106,10 +106,6 @@ def verify_answer(
     checker = attribution_checker or StubAttributionChecker()
     report = VerificationReport()
 
-    if answer.is_psak:
-        report.failures.append(
-            Failure(check="V3", code="marked_as_psak", reason="answer is marked as a ruling")
-        )
     if not answer.disclaimer.strip():
         report.failures.append(
             Failure(

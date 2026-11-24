@@ -1,3 +1,6 @@
+import pytest
+from pydantic import ValidationError
+
 from rav_evals.schema import Answer, Citation, Claim, ClaimType
 from rav_evals.textnorm_stub import normalize
 from rav_evals.verifier import (
@@ -80,10 +83,14 @@ def test_v3_system_claims_need_flag():
         assert ok.passed
 
 
-def test_v3_disclaimer_and_psak():
+def test_v3_disclaimer():
     assert codes(verify_answer(ans(disclaimer=""), [], STORE)) == ["V3:missing_disclaimer"]
-    a = Answer(claims=[], disclaimer="d", is_psak=True)
-    assert codes(verify_answer(a, [], STORE)) == ["V3:marked_as_psak"]
+
+
+def test_is_psak_true_rejected_by_schema():
+    with pytest.raises(ValidationError):
+        Answer(claims=[], disclaimer="d", is_psak=True)
+    assert Answer(claims=[], disclaimer="d").is_psak is False
 
 
 def test_v4_stub_skips_and_custom_checker_can_fail():
