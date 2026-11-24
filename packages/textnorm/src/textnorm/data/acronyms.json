@@ -1,0 +1,1447 @@
+{
+ "meta": {
+  "version": 1,
+  "sources": {
+   "curated-v1": {
+    "description": "Hand-curated by the textnorm authors from standard usage in printed Talmud, Rishonim and poskim (Shulchan Arukh / Mishnah Berurah). No third-party dictionary text was copied.",
+    "license": "same as this repository"
+   }
+  },
+  "not_imported": "Wikisource and Dicta abbreviation lists were NOT imported: license/terms were not verified. See README for how to add them.",
+  "notes": "expansions are ordered most-common-first within the corpus domain; an acronym may have several valid expansions."
+ },
+ "entries": [
+  {
+   "abbr": "ר\"ל",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "ריש לקיש",
+    "רחמנא ליצלן",
+    "רוצה לומר"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ע\"כ",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "עד כאן",
+    "על כרחך"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "מ\"מ",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "מכל מקום",
+    "מגיד משנה",
+    "מראה מקום"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ע\"א",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "עמוד א"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ע\"ב",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "עמוד ב"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ב\"ה",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "בית הלל",
+    "ברוך השם",
+    "בעזרת השם"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ב\"ש",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "בית שמאי"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ב\"ד",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "בית דין"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ב\"ב",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "בבא בתרא"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ב\"ק",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "בבא קמא"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ב\"מ",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "בבא מציעא"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ר\"ח",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "ראש חודש",
+    "רבינו חננאל",
+    "רבי חייא",
+    "רבינו חיים"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ר\"ה",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "ראש השנה",
+    "רב הונא"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ר\"ש",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "רבי שמעון",
+    "רבן שמעון",
+    "רבינו שמשון",
+    "רבי שמואל"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ר\"י",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "רבי יהודה",
+    "רבי יוסי",
+    "רבי יוחנן",
+    "רבי ישמעאל",
+    "רבי יצחק",
+    "רבי יהושע",
+    "רבינו יונה",
+    "רבינו יצחק"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ר\"מ",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "רבי מאיר",
+    "רבי מנחם",
+    "רבינו משה"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ר\"ע",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "רבי עקיבא"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ר\"א",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "רבי אליעזר",
+    "רבי אלעזר",
+    "רבי אבא"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ר\"ג",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "רבן גמליאל",
+    "רבינו גרשום"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ר\"ת",
+   "kind": "acronym",
+   "domain": "rishonim",
+   "expansions": [
+    "רבינו תם",
+    "ראשי תיבות"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "רש\"י",
+   "kind": "acronym",
+   "domain": "rishonim",
+   "expansions": [
+    "רבי שלמה יצחקי"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "רשב\"ם",
+   "kind": "acronym",
+   "domain": "rishonim",
+   "expansions": [
+    "רבי שמואל בן מאיר"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "רמב\"ם",
+   "kind": "acronym",
+   "domain": "rishonim",
+   "expansions": [
+    "רבי משה בן מימון"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "רמב\"ן",
+   "kind": "acronym",
+   "domain": "rishonim",
+   "expansions": [
+    "רבי משה בן נחמן"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "רשב\"א",
+   "kind": "acronym",
+   "domain": "rishonim",
+   "expansions": [
+    "רבי שלמה בן אדרת"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "רא\"ש",
+   "kind": "acronym",
+   "domain": "rishonim",
+   "expansions": [
+    "רבינו אשר"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ריטב\"א",
+   "kind": "acronym",
+   "domain": "rishonim",
+   "expansions": [
+    "רבי יום טוב בן אברהם אשבילי"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ר\"ן",
+   "kind": "acronym",
+   "domain": "rishonim",
+   "expansions": [
+    "רבינו נסים"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "רי\"ף",
+   "kind": "acronym",
+   "domain": "rishonim",
+   "expansions": [
+    "רבי יצחק אלפסי"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ראב\"ד",
+   "kind": "acronym",
+   "domain": "rishonim",
+   "expansions": [
+    "רבי אברהם בן דוד"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ראב\"ע",
+   "kind": "acronym",
+   "domain": "rishonim",
+   "expansions": [
+    "רבי אברהם אבן עזרא"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "רשב\"ג",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "רבן שמעון בן גמליאל"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "רשב\"י",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "רבי שמעון בר יוחאי"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "מהרש\"א",
+   "kind": "acronym",
+   "domain": "poskim",
+   "expansions": [
+    "מורנו הרב שמואל אליעזר איידלש"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "מהר\"ם",
+   "kind": "acronym",
+   "domain": "rishonim",
+   "expansions": [
+    "מורנו הרב מאיר"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "רע\"ב",
+   "kind": "acronym",
+   "domain": "poskim",
+   "expansions": [
+    "רבי עובדיה מברטנורא"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ר\"י",
+   "kind": "acronym",
+   "domain": "rishonim",
+   "expansions": [
+    "רבינו יצחק"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "רמ\"א",
+   "kind": "acronym",
+   "domain": "poskim",
+   "expansions": [
+    "רבי משה איסרליש"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ב\"י",
+   "kind": "acronym",
+   "domain": "poskim",
+   "expansions": [
+    "בית יוסף"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ש\"ך",
+   "kind": "acronym",
+   "domain": "poskim",
+   "expansions": [
+    "שפתי כהן"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ט\"ז",
+   "kind": "acronym",
+   "domain": "poskim",
+   "expansions": [
+    "טורי זהב"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "מג\"א",
+   "kind": "acronym",
+   "domain": "poskim",
+   "expansions": [
+    "מגן אברהם"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "משנ\"ב",
+   "kind": "acronym",
+   "domain": "poskim",
+   "expansions": [
+    "משנה ברורה"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "מ\"ב",
+   "kind": "acronym",
+   "domain": "poskim",
+   "expansions": [
+    "משנה ברורה"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ביה\"ל",
+   "kind": "acronym",
+   "domain": "poskim",
+   "expansions": [
+    "ביאור הלכה"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "שעה\"צ",
+   "kind": "acronym",
+   "domain": "poskim",
+   "expansions": [
+    "שער הציון"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "פמ\"ג",
+   "kind": "acronym",
+   "domain": "poskim",
+   "expansions": [
+    "פרי מגדים"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "שו\"ע",
+   "kind": "acronym",
+   "domain": "poskim",
+   "expansions": [
+    "שולחן ערוך"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "או\"ח",
+   "kind": "acronym",
+   "domain": "poskim",
+   "expansions": [
+    "אורח חיים"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "יו\"ד",
+   "kind": "acronym",
+   "domain": "poskim",
+   "expansions": [
+    "יורה דעה"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "אה\"ע",
+   "kind": "acronym",
+   "domain": "poskim",
+   "expansions": [
+    "אבן העזר"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "חו\"מ",
+   "kind": "acronym",
+   "domain": "poskim",
+   "expansions": [
+    "חושן משפט"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ס\"ק",
+   "kind": "acronym",
+   "domain": "poskim",
+   "expansions": [
+    "סעיף קטן"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ב\"ח",
+   "kind": "acronym",
+   "domain": "poskim",
+   "expansions": [
+    "בית חדש"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ד\"מ",
+   "kind": "acronym",
+   "domain": "poskim",
+   "expansions": [
+    "דרכי משה"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "כ\"מ",
+   "kind": "acronym",
+   "domain": "poskim",
+   "expansions": [
+    "כסף משנה"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "הגר\"א",
+   "kind": "acronym",
+   "domain": "poskim",
+   "expansions": [
+    "הגאון רבי אליהו"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "חזו\"א",
+   "kind": "acronym",
+   "domain": "poskim",
+   "expansions": [
+    "חזון איש"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "חז\"ל",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "חכמינו זכרונם לברכה"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ז\"ל",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "זכרונו לברכה"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "זצ\"ל",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "זכר צדיק לברכה"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "הקב\"ה",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "הקדוש ברוך הוא"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "בע\"ה",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "בעזרת השם"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "בס\"ד",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "בסייעתא דשמיא"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "אי\"ה",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "אם ירצה השם"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ח\"ו",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "חס ושלום"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ד\"ה",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "דיבור המתחיל"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "תד\"ה",
+   "kind": "acronym",
+   "domain": "rishonim",
+   "expansions": [
+    "תוספות דיבור המתחיל"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "תוס'",
+   "kind": "abbreviation",
+   "domain": "rishonim",
+   "expansions": [
+    "תוספות",
+    "תוספתא"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "סי'",
+   "kind": "abbreviation",
+   "domain": "poskim",
+   "expansions": [
+    "סימן"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "פי'",
+   "kind": "abbreviation",
+   "domain": "general",
+   "expansions": [
+    "פירוש"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "פרש\"י",
+   "kind": "acronym",
+   "domain": "rishonim",
+   "expansions": [
+    "פירש רש\"י"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "הל'",
+   "kind": "abbreviation",
+   "domain": "poskim",
+   "expansions": [
+    "הלכות"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "וכו'",
+   "kind": "abbreviation",
+   "domain": "general",
+   "expansions": [
+    "וכולי"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "כו'",
+   "kind": "abbreviation",
+   "domain": "general",
+   "expansions": [
+    "כולי"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "עי'",
+   "kind": "abbreviation",
+   "domain": "general",
+   "expansions": [
+    "עיין"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "וגו'",
+   "kind": "abbreviation",
+   "domain": "general",
+   "expansions": [
+    "וגומר"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "עיי\"ש",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "עיין שם"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ע\"ש",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "עיין שם",
+    "על שם"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ע\"ז",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "עבודה זרה"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ע\"י",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "על ידי"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ע\"פ",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "על פי"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ע\"ד",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "על דעת",
+    "על דבר"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ע\"מ",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "על מנת"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ע\"ג",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "על גבי"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ע\"ס",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "על סמך"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "עכ\"פ",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "על כל פנים"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "עכ\"ל",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "עד כאן לשונו"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "עכ\"ד",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "עד כאן דבריו"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "אע\"פ",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "אף על פי"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "אע\"ג",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "אף על גב"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "אעפ\"כ",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "אף על פי כן"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ה\"ה",
+   "kind": "acronym",
+   "domain": "rishonim",
+   "expansions": [
+    "הוא הדין",
+    "הרי הוא"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "וה\"ה",
+   "kind": "acronym",
+   "domain": "rishonim",
+   "expansions": [
+    "והוא הדין"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ה\"ז",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "הרי זה"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ה\"נ",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "הכי נמי",
+    "הכא נמי"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ה\"ק",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "הכי קאמר"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ה\"ג",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "הכי גרסינן"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ה\"ד",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "היכי דמי"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ד\"א",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "דבר אחר"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ד\"ת",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "דברי תורה"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "מ\"ט",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "מאי טעמא"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "מ\"ד",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "מאן דאמר"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "מ\"ס",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "מר סבר"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "מנ\"ל",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "מנא לן"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "א\"ר",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "אמר רבי",
+    "אמר רב",
+    "אליה רבה"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ק\"ו",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "קל וחומר"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ג\"ש",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "גזירה שוה"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ק\"ש",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "קריאת שמע"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ס\"ת",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "ספר תורה"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ת\"ח",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "תלמיד חכם"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ת\"ר",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "תנו רבנן"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ת\"ש",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "תא שמע"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ת\"ק",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "תנא קמא"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ת\"ל",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "תלמוד לומר"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ת\"ת",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "תלמוד תורה"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ל\"ת",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "לא תעשה"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "מ\"ע",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "מצות עשה"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "נ\"מ",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "נפקא מינה"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "נ\"ל",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "נראה לי"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ש\"ס",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "ששה סדרים"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ש\"מ",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "שמע מינה"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "שו\"ת",
+   "kind": "acronym",
+   "domain": "poskim",
+   "expansions": [
+    "שאלות ותשובות"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ס\"ל",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "סבירא ליה"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ל\"ל",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "למה לי"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "לכ\"ע",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "לכולי עלמא"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ס\"ד",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "סלקא דעתך"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "כ\"ש",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "כל שכן"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "כ\"כ",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "כל כך",
+    "כך כתב"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "כ\"ז",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "כל זה"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "כ\"ג",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "כהן גדול"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ג\"כ",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "גם כן"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "א\"כ",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "אם כן"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "א\"ל",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "אמר ליה"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "א\"נ",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "או נימא"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "א\"צ",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "אין צריך"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "אה\"נ",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "אין הכי נמי"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ל\"ש",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "לא שנא"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ל\"ק",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "לא קשיא"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "קמ\"ל",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "קא משמע לן"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "י\"ל",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "יש לומר"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "י\"א",
+   "kind": "acronym",
+   "domain": "poskim",
+   "expansions": [
+    "יש אומרים"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ר\"פ",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "ריש פרק"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ס\"פ",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "סוף פרק"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ר\"ס",
+   "kind": "acronym",
+   "domain": "poskim",
+   "expansions": [
+    "ראש סימן"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ס\"ס",
+   "kind": "acronym",
+   "domain": "poskim",
+   "expansions": [
+    "סוף סימן"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "פ\"ק",
+   "kind": "acronym",
+   "domain": "talmud",
+   "expansions": [
+    "פרק קמא"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "הנ\"ל",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "הנזכר לעיל",
+    "הנזכר למעלה"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "כנ\"ל",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "כנזכר לעיל"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "וכיו\"ב",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "וכיוצא בזה"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "וכד'",
+   "kind": "abbreviation",
+   "domain": "general",
+   "expansions": [
+    "וכדומה"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ת\"י",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "תרגום יונתן"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ת\"א",
+   "kind": "acronym",
+   "domain": "general",
+   "expansions": [
+    "תרגום אונקלוס"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ח\"א",
+   "kind": "acronym",
+   "domain": "poskim",
+   "expansions": [
+    "חיי אדם",
+    "חלק א"
+   ],
+   "source": "curated-v1"
+  },
+  {
+   "abbr": "ח\"ב",
+   "kind": "acronym",
+   "domain": "poskim",
+   "expansions": [
+    "חלק ב"
+   ],
+   "source": "curated-v1"
+  }
+ ]
+}
