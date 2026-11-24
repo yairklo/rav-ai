@@ -1,0 +1,40 @@
+[project]
+name = "rav-ai"
+version = "0.1.0"
+description = "Canonical corpus ingestion for a source-grounded halakhic Q&A system (Sefaria first)."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "sqlalchemy>=2.0",
+    "alembic>=1.13",
+    "httpx>=0.27",
+]
+
+[project.scripts]
+rav-download = "rav_ai.cli.download:main"
+rav-ingest = "rav_ai.cli.ingest:main"
+rav-license-report = "rav_ai.cli.license_report:main"
+rav-show = "rav_ai.cli.show:main"
+rav-export = "rav_ai.cli.export:main"
+rav-pilot = "rav_ai.cli.pilot:main"
+rav-token-stats = "rav_ai.cli.token_stats:main"
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rav_ai"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
