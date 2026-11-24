@@ -14,8 +14,8 @@ from typing import Any, Literal, Protocol
 from pydantic import BaseModel, Field, computed_field
 
 from .golden import GoldenQuestion, GoldenSet, RubricItem, is_placeholder
+from .normalization import normalize as default_normalize
 from .schema import Answer, ClaimType
-from .textnorm_stub import normalize as default_normalize
 from .verifier import (
     AttributionChecker,
     Normalizer,
@@ -35,6 +35,8 @@ class RunOutput(BaseModel):
     retrieved_refs: list[str] = Field(default_factory=list)
     model: str = "unknown"
     tool_calls: list[dict[str, Any]] = Field(default_factory=list)
+    prompt_version: str | None = None
+    prompt_hash: str | None = None  # sha256 of the full prompt, see models.prompt_hash
 
 
 AnswerFn = Callable[[GoldenQuestion], RunOutput]

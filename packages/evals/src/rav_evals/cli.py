@@ -17,16 +17,39 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="rav-evals")
     p.add_argument("questions", help="golden set YAML")
     p.add_argument("--answer-fn", required=True, help="module:callable(GoldenQuestion)->RunOutput")
-    p.add_argument("--sources", required=True, help='JSON file {"ref": "text", ...} (fake store)')
+    p.add_argument("--sources", help='JSON file {"ref": "text", ...} (fake store, for tests)')
+    p.add_argument(
+        "--database-url",
+        help="verify against the corpus in Postgres and log every result to the runs table",
+    )
     p.add_argument("--out-dir", default="eval-out")
     args = p.parse_args(argv)
 
     sys.path.insert(0, str(Path.cwd()))
     mod_name, _, fn_name = args.answer_fn.partition(":")
     answer_fn = getattr(importlib.import_module(mod_name), fn_name)
-    store = InMemorySourceStore(json.loads(Path(args.sources).read_text(encoding="utf-8")))
+    if bool(args.sources) == bool(args.database_url):
+        p.error("give exactly one of --sources and --database-url")
+    engine = None
+    if args.database_url:
+        from sqlalchemy import create_engine
 
-    report = run_eval(load_golden(args.questions), answer_fn, store)
+        from .pg_store import PostgresSourceStore
+
+        engine = create_engine(args.database_url)
+        store = PostgresSourceStore(engine)
+    else:
+        store = InMemorySourceStore(json.loads(Path(args.sources).read_text(encoding="utf-8")))
+
+    golden = load_golden(args.questions)
+    report = run_eval(golden, answer_fn, store)
+    if engine is not None:
+        from sqlalchemy.orm import Session
+
+        from .models import record_report
+
+        with Session(engine) as session:
+            record_report(session, golden, report)
     jp, mp = report.write(args.out_dir)
     s = report.summary()
     print(

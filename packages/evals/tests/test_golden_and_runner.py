@@ -2,12 +2,13 @@ import json
 from pathlib import Path
 
 import pytest
+from rav_ai.db.models import Run
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
 from rav_evals.cli import main as cli_main
 from rav_evals.golden import GoldenSet, is_placeholder, load_golden
-from rav_evals.models import EvalsBase, Run, run_from_result
+from rav_evals.models import run_from_result
 from rav_evals.runner import JudgeVerdict, RunOutput, run_eval
 from rav_evals.schema import Answer, Citation, Claim, ClaimType
 from rav_evals.verifier import InMemorySourceStore
@@ -184,7 +185,7 @@ def test_report_json_and_markdown(golden, tmp_path):
 def test_runs_table_roundtrip(golden):
     report = run_eval(golden, good_output, STORE)
     engine = create_engine("sqlite://")
-    EvalsBase.metadata.create_all(engine)
+    Run.__table__.create(engine)
     with Session(engine) as s:
         s.add(run_from_result(report.results[0], "שאלה", golden.version))
         s.commit()

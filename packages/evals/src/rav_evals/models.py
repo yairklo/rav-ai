@@ -1,68 +1,35 @@
-"""Proposed ``runs`` table: one row per system run, kept for evals and future training data.
-
-Uses its own declarative Base so it does not interfere with the corpus models. NOT wired
-into Alembic yet: integrating it is left to whoever owns the DB migrations.
-"""
+"""Run logging. The ``runs`` table lives on the shared corpus ``Base`` (``rav_ai.db.models``)
+so Alembic migrates it with everything else; this module only builds rows from results."""
 
 from __future__ import annotations
 
-import uuid
-from datetime import UTC, datetime
+import hashlib
 from typing import Any
 
-from sqlalchemy import JSON, Boolean, DateTime, Integer, String, Text
-from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from rav_ai.db.models import Run
+from sqlalchemy.orm import Session
 
-# JSONB on PostgreSQL, plain JSON elsewhere (SQLite in tests).
-JsonType = JSON().with_variant(JSONB(), "postgresql")
+from .golden import GoldenSet
+from .runner import EvalReport
 
-
-class EvalsBase(DeclarativeBase):
-    pass
+__all__ = ["Run", "prompt_hash", "record_report", "run_from_result"]
 
 
-def _now() -> datetime:
-    return datetime.now(UTC)
-
-
-class Run(EvalsBase):
-    __tablename__ = "runs"
-
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, index=True)
-
-    # Input
-    question_text: Mapped[str] = mapped_column(Text)
-    question_id: Mapped[str | None] = mapped_column(String(128), index=True)  # golden id, if any
-    golden_version: Mapped[str | None] = mapped_column(String(64))
-    model: Mapped[str] = mapped_column(String(128), index=True)
-    prompt_version: Mapped[str | None] = mapped_column(String(64))
-
-    # What happened
-    retrieved_sources: Mapped[list[Any]] = mapped_column(JsonType, default=list)  # refs (+scores)
-    tool_calls: Mapped[list[Any]] = mapped_column(JsonType, default=list)
-    answer: Mapped[dict[str, Any] | None] = mapped_column(JsonType)  # Answer.model_dump()
-    error: Mapped[str | None] = mapped_column(Text)
-    latency_ms: Mapped[int | None] = mapped_column(Integer)
-
-    # Verification
-    verification: Mapped[dict[str, Any] | None] = mapped_column(JsonType)  # VerificationReport
-    verification_passed: Mapped[bool | None] = mapped_column(Boolean, index=True)
-
-    # Human/LLM review, filled later; gate for using the row as training data
-    review_label: Mapped[str | None] = mapped_column(String(32))
-    review_notes: Mapped[str | None] = mapped_column(Text)
+def prompt_hash(prompt: str) -> str:
+    return hashlib.sha256(prompt.encode("utf-8")).hexdigest()
 
 
 def run_from_result(result: Any, question_text: str, golden_version: str | None = None) -> Run:
-    """Build a ``Run`` row from a runner ``QuestionResult``."""
+    """Build a ``Run`` row from a runner ``QuestionResult``: model, prompt hash, answer and
+    verifier results."""
     out = result.output
     return Run(
         question_text=question_text,
         question_id=result.question_id,
         golden_version=golden_version,
         model=result.model or "unknown",
+        prompt_version=out.prompt_version if out else None,
+        prompt_hash=out.prompt_hash if out else None,
         retrieved_sources=list(out.retrieved_refs) if out else [],
         tool_calls=list(out.tool_calls) if out else [],
         answer=out.answer.model_dump(mode="json") if out else None,
@@ -71,3 +38,15 @@ def run_from_result(result: Any, question_text: str, golden_version: str | None 
         verification=result.verification.model_dump(mode="json") if result.verification else None,
         verification_passed=result.verification.passed if result.verification else None,
     )
+
+
+def record_report(session: Session, golden: GoldenSet, report: EvalReport) -> list[Run]:
+    """Persist every question result of ``report`` as a ``runs`` row (one commit)."""
+    questions = {q.id: q.question for q in golden.questions}
+    rows = [
+        run_from_result(r, questions.get(r.question_id, ""), report.golden_version)
+        for r in report.results
+    ]
+    session.add_all(rows)
+    session.commit()
+    return rows

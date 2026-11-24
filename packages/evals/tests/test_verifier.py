@@ -1,8 +1,8 @@
 import pytest
 from pydantic import ValidationError
 
+from rav_evals.normalization import normalize
 from rav_evals.schema import Answer, Citation, Claim, ClaimType
-from rav_evals.textnorm_stub import normalize
 from rav_evals.verifier import (
     AttributionVerdict,
     InMemorySourceStore,
@@ -30,7 +30,8 @@ def codes(report):
 def test_normalize_strips_nikud_html_punct_finals():
     assert normalize("מִצְוַת <b>חנוכה</b>, ") == normalize("מצות חנוכה")
     assert normalize("ךםןףץ") == normalize("כמנפצ")
-    assert normalize('מג"א א׳־ב') == "מג א א ב"
+    # textnorm level B: gershayim vanish without splitting, geresh vanishes, maqaf -> space
+    assert normalize('מג"א א׳־ב') == "מגא א ב"
 
 
 def test_clean_answer_passes():
