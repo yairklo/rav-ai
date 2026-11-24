@@ -1,4 +1,7 @@
-from textnorm import find_acronyms, load_dictionary
+import pytest
+
+from textnorm import find_acronyms, load_dictionary, rank_candidates
+from textnorm.acronyms import DOMAINS
 
 
 def texts(found):
@@ -59,4 +62,42 @@ def test_dictionary_integrity():
     data = json.loads(resources.files("textnorm").joinpath("data/acronyms.json").read_text("utf8"))
     for e in data["entries"]:
         assert e["expansions"] and e["source"] in data["meta"]["sources"]
+        assert all(x["domain"] in data["meta"]["domains"] for x in e["expansions"])
         assert e["abbr"].count('"') == 1 or e["abbr"].endswith("'")
+
+
+def test_added_expansions_exist_with_domain_and_prior():
+    d = load_dictionary()
+    want = {'ע"כ': "על כן", 'ע"ז': "על זה", 'ח"ו': "חס וחלילה", 'ת"י': "תלמוד ירושלמי"}
+    for abbr, text in want.items():
+        (ex,) = [e for e in d[abbr.replace('"', "")] if e.text == text]
+        assert ex.domain in DOMAINS and set(ex.prior) == set(DOMAINS)
+        assert all(0 <= v <= 1 for v in ex.prior.values())
+
+
+def test_every_expansion_has_domain_and_full_prior():
+    for exps in load_dictionary().values():
+        for e in exps:
+            assert e.domain in DOMAINS and set(e.prior) == set(DOMAINS)
+            assert e.domain == max(DOMAINS, key=lambda k: e.prior[k]) or e.prior[e.domain] == max(
+                e.prior.values()
+            )
+
+
+def test_rank_candidates_orders_by_context_without_choosing():
+    talmud = [e.text for e in rank_candidates('ע"ז', "talmud")]
+    general = [e.text for e in rank_candidates('ע"ז', "general")]
+    assert talmud[0] == "עבודה זרה" and general[0] == "על זה"
+    assert sorted(talmud) == sorted(general) == sorted(["עבודה זרה", "על זה"])  # same set
+    assert rank_candidates('ת"י', "talmud")[0].text == "תלמוד ירושלמי"
+    assert rank_candidates('ת"י', "general")[0].text == "תרגום יונתן"
+    assert rank_candidates('ח"ו', "responsa")[0].text in {"חס ושלום", "חס וחלילה"}
+    ranks = [e.prior["halakha"] for e in rank_candidates('ר"י', "halakha")]
+    assert ranks == sorted(ranks, reverse=True)
+
+
+def test_rank_candidates_edges():
+    assert rank_candidates('זק"ף', "talmud") == []
+    assert [e.text for e in rank_candidates('וע"כ', "general")]  # clitic prefix handled
+    with pytest.raises(ValueError):
+        rank_candidates('ר"ל', "poskim")

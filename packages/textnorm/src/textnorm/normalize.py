@@ -195,8 +195,11 @@ def normalize(text: str, level: Level = "A", *, plene: Plene = "double") -> Norm
     Level B: A plus punctuation removal (geresh/gershayim/quotes vanish without splitting the
     word: ר"ל -> רל; other punctuation becomes a space) and plene/defective folding, chosen by
     ``plene``: "none"; "double" (default; collapse doubled ו/י: מצווה->מצוה, ייתכן->יתכן; no
-    meaningful loss of precision); "vav" (also drop a medial ו in words of >=4 letters:
-    כתוב->כתב, but also מצוה->מצה, so lossy).
+    meaningful loss of precision); "vav" (after collapsing doubles, drop EVERY ו that is neither
+    the first nor the last letter of a word of >=4 letters and is not next to another ו/י, with
+    no morphology: it cannot tell a vowel-letter ו from a consonantal one or a prefix boundary.
+    כתוב->כתב and שלוש->שלש are wanted, but מצוה->מצה, הואיל->האיל are collisions/damage, so
+    it is lossy and opt-in).
     """
     lv = level.upper()
     if lv not in ("A", "B"):

@@ -117,3 +117,13 @@ def test_output_has_no_marks_or_runs_of_space(text):
         assert "  " not in out and out == out.strip()
         assert not any("֑" <= c <= "ׇ" for c in out)
         assert not any(c in "ךםןףץ" for c in out)
+
+
+def test_plene_vav_drops_every_medial_vav_and_is_lossy():
+    def f(w):
+        return normalize(w, "B", plene="vav").text
+
+    assert f("כתוב") == "כתב" and f("שלוש") == "שלש"  # intended
+    assert f("מצוה") == "מצה" and f("הואיל") == "האיל"  # collisions/damage, as documented
+    assert f("טוב") == "טוב" and f("ועד") == "ועד"  # short words; initial/final ו untouched
+    assert f("עוון") == "עונ"  # doubles collapse first

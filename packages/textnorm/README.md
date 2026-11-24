@@ -29,8 +29,10 @@ range of the *original* string (code points) that produced `text[k]`.
   `רל`; every other punctuation/symbol becomes a space) and plene/defective folding via `plene`:
   * `"double"` (default): collapses doubled ו/י (`מצווה`→`מצוה`, `ייתכן`→`יתכן`). Practically
     lossless.
-  * `"vav"`: additionally drops a medial ו in words of ≥4 letters (`כתוב`→`כתב`). Lossy
-    (`מצוה`→`מצה` collides with matzah), opt-in.
+  * `"vav"`: after collapsing doubles, drops **every** ו that is not the first or last letter of
+    a word of ≥4 letters and is not adjacent to another ו/י. No morphology: it cannot tell a
+    vowel-letter ו from a consonantal one or a prefix boundary, so `כתוב`→`כתב` and `שלוש`→`שלש`
+    work but `מצוה`→`מצה` (collides with matzah) and `הואיל`→`האיל` are damaged. Lossy, opt-in.
   * `"none"`.
 
 `NormResult.map_span(norm_start, norm_end) -> (orig_start, orig_end)` returns the smallest
@@ -53,6 +55,13 @@ stripped to match the dictionary), `expansions` (possible openings, each with `d
 text. Geresh-ended words are reported only if in the dictionary or ≤2 letters, otherwise a closing
 single quote would be indistinguishable.
 
+### `rank_candidates(abbr, context_domain) -> list[Expansion]`
+
+Sorts the dictionary expansions of an acronym by `prior[context_domain]` (domains: `talmud`,
+`halakha`, `responsa`, `general`). It only orders; nothing is chosen or expanded in text. Every
+expansion has a `domain` (its most likely domain) and `prior` (0..1 per domain). **Priors are hand
+estimates, not corpus counts** (see `meta.priors` in `acronyms.json`).
+
 ### `find_citations(text, *, context=None) -> list[Citation]`
 
 Returns `Citation(span, text, id, confidence, kind, parts)`; `id` is a Sefaria ref.
@@ -63,7 +72,11 @@ Returns `Citation(span, text, id, confidence, kind, parts)`; `id` is a Sefaria r
 | `או"ח סי' תרע"א ס"ב` | `Shulchan Arukh, Orach Chayim 671:2` |
 | `משנ"ב סי' תרע"א ס"ק ג` | `Mishnah Berurah 671:3` |
 | `רמב"ם הל' חנוכה פ"ג ה"א` | `Mishneh Torah, Scroll of Esther and Hanukkah 3:1` |
-| `משנה ברכות פ"א מ"א` | `Mishnah Berakhot 1:1` |
+| `משנה ברכות פ"א מ"א` | `Mishnah Berakhot 1:1` (Avot: `Pirkei Avot 2:4`, the Sefaria title verbatim) |
+| `משנ"ב סי' תרע"א ס"ב` | `Mishnah Berurah 671:2` (a se'if is kept, at lower confidence) |
+| `טור או"ח סי' תרע"א`, `רמ"א`/`ש"ך`/`ט"ז`/`ב"י`/... | `id=None`, `kind="other_work"` (never attributed to Shulchan Arukh; list in `_OTHER_WORKS`) |
+| `ירושלמי שבת פ"ב ה"א` | `id=None`, `kind="yerushalmi"` |
+| `שבת פ"ב` | no match (`פ"ב` is a chapter; it is a daf only with `דף` or an explicit amud) |
 | `דף כ"א ע"ב` + `context="Shabbat"` | `Shabbat 21b` (without context: `id=None`) |
 
 `confidence` is a heuristic in [0, 1] (explicit amud, "דף", explicit work name raise it; a bare
@@ -94,7 +107,8 @@ spelling only: `כא` yes, `בא` no; `ט"ו`/`ט"ז`; thousands as `ה'תשפ"�
   (`רשי`, `ריש לקיש` abbreviations without marks are not detected).
 * Acronyms: many are ambiguous (`ר"י`, `ע"ב`); all candidates are returned, none chosen. Numerals
   like `כ"ה` appear as candidates with `could_be_numeral=True`.
-* Citations: no Tanakh, Yerushalmi, Tur, Rema/Shakh/Taz sub-refs, ranges (`כא ע"א - כב ע"ב`),
+* Citations: no Tanakh; Yerushalmi and other halakhic works (Tur, Rema, Shakh, Taz...) are only
+  recognized, never resolved (`id=None`), and only those in `_OTHER_WORKS` are known; ranges (`כא ע"א - כב ע"ב`),
   nor `מ"ב` used for other works; `ס"ב` after a siman is read as seif 2, never as 62; `שבת כא.`
   with a period is read as amud a with lower confidence; tractate names that are also ordinary
   words (שבת, ברכות) require a following numeral. Daf numbers are only range-checked to 2–176, not

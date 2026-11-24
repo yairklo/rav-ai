@@ -1,12 +1,13 @@
 import pytest
 
 from textnorm import find_citations, parse_numeral, to_gematria
+from textnorm.citations import _f
 
 CASES = [
     ('שבת כא ע"ב', "Shabbat 21b", "bavli"),
     ('גמרא שבת כ"א ע"א', "Shabbat 21a", "bavli"),
     ("שבת דף כא:", "Shabbat 21b", "bavli"),
-    ("במסכת ברכות דף ב' ע\"ב", None, None),  # geresh numeral without final: not required
+    ("במסכת ברכות דף ב' ע\"ב", "Berakhot 2b", "bavli"),  # geresh after a single-letter numeral
     ('בבא קמא ס"ב ע"ב', "Bava Kamma 62b", "bavli"),
     ('ב"מ קי"ד ע"א', "Bava Metzia 114a", "bavli"),
     ('רש"י בשבת לא ע"א ד"ה מאי', "Shabbat 31a", "bavli"),
@@ -16,15 +17,13 @@ CASES = [
     ('רמב"ם הל\' חנוכה פ"ג ה"א', "Mishneh Torah, Scroll of Esther and Hanukkah 3:1", "rambam"),
     ('הרמב"ם הלכות שבת פרק ה הלכה ג', "Mishneh Torah, Sabbath 5:3", "rambam"),
     ('משנה ברכות פ"א מ"א', "Mishnah Berakhot 1:1", "mishnah"),
-    ("מסכת אבות פרק ב משנה ד", "Mishnah Pirkei Avot 2:4", "mishnah"),
+    ("מסכת אבות פרק ב משנה ד", "Pirkei Avot 2:4", "mishnah"),
 ]
 
 
 @pytest.mark.parametrize("text,ref,kind", CASES)
 def test_cases(text, ref, kind):
     found = find_citations(text)
-    if ref is None:
-        return
     assert found, text
     c = found[0]
     assert (c.id, c.kind) == (ref, kind)
@@ -90,3 +89,65 @@ def test_gematria_invalid(tok):
 def test_gematria_roundtrip():
     for n in range(1, 1000):
         assert parse_numeral(to_gematria(n)) == n
+
+
+def test_mishnah_titles_are_sefaria_titles_verbatim():
+    # the index title is already "Pirkei Avot"; no "Mishnah " prefix may be added to it
+    assert find_citations("מסכת אבות פרק ב משנה ד")[0].id == "Pirkei Avot 2:4"
+    assert find_citations('משנה אבות פ"א מ"ג')[0].id == "Pirkei Avot 1:3"
+    assert find_citations('משנה ברכות פ"א מ"א')[0].id == "Mishnah Berakhot 1:1"
+
+
+@pytest.mark.parametrize("text", ['שבת פ"ב', 'שבת פ"ב.', 'בשבת פ"ב ובברכות פ"ג'])
+def test_perek_token_is_not_a_daf(text):
+    assert find_citations(text) == []
+
+
+def test_perek_token_is_a_daf_only_with_explicit_daf_or_amud():
+    assert find_citations('שבת דף פ"ב')[0].id == "Shabbat 82"
+    assert find_citations('שבת פ"ב ע"א')[0].id == "Shabbat 82a"
+
+
+@pytest.mark.parametrize(
+    "text",
+    ['ירושלמי שבת פ"ב ה"א', 'ירושלמי שבת פ"ב', "בירושלמי ברכות דף ב", 'תלמוד ירושלמי שבת פ"א ה"ג'],
+)
+def test_yerushalmi_is_not_resolved(text):
+    (c,) = find_citations(text)
+    assert c.id is None and c.kind == "yerushalmi"
+    assert c.text == text  # whole reference consumed, not read as a Bavli/Mishnah ref
+
+
+@pytest.mark.parametrize(
+    "text,work",
+    [
+        ('טור או"ח סי\' תרע"א', "טור"),
+        ('רמ"א או"ח סי\' תרע"א סעיף ב', 'רמ"א'),
+        ('ש"ך יו"ד סי\' קפ"ז ס"ק ג', 'ש"ך'),
+        ('ט"ז או"ח סימן תרע"א', 'ט"ז'),
+        ('וברמ"א או"ח סי\' תרע"א', 'רמ"א'),
+        ('ב"י או"ח סי\' תרע"א', 'ב"י'),
+    ],
+)
+def test_other_works_are_not_attributed_to_shulchan_arukh(text, work):
+    (c,) = find_citations(text)
+    assert c.id is None and c.kind == "other_work" and c.parts["work"] == _f(work)
+    assert c.text == text  # span covers the work name too
+
+
+def test_other_work_does_not_poison_following_citations():
+    t = 'טור או"ח סי\' תרע"א ושו"ע או"ח סי\' תרע"א ס"ב'
+    assert [c.id for c in find_citations(t)] == [None, "Shulchan Arukh, Orach Chayim 671:2"]
+    assert find_citations('או"ח סי\' תרע"א')[0].id == "Shulchan Arukh, Orach Chayim 671"
+
+
+def test_mishnah_berurah_keeps_the_seif():
+    (c,) = find_citations('משנ"ב סי\' תרע"א ס"ב')
+    assert c.id == "Mishnah Berurah 671:2" and c.parts["seif"] == 2
+    (d,) = find_citations('משנ"ב סי\' תרע"א סעיף ב')
+    assert d.id == "Mishnah Berurah 671:2"
+    (k,) = find_citations('משנ"ב סי\' תרע"א ס"ק ג')
+    assert k.id == "Mishnah Berurah 671:3" and k.confidence > c.confidence
+    (both,) = find_citations('משנ"ב סי\' תרע"א ס"ב ס"ק ג')
+    assert both.id == "Mishnah Berurah 671:3"  # the se'if katan is Sefaria's address
+    assert find_citations('משנ"ב סי\' תרע"א')[0].id == "Mishnah Berurah 671"

@@ -1,6 +1,6 @@
 {
  "meta": {
-  "version": 1,
+  "version": 2,
   "sources": {
    "curated-v1": {
     "description": "Hand-curated by the textnorm authors from standard usage in printed Talmud, Rishonim and poskim (Shulchan Arukh / Mishnah Berurah). No third-party dictionary text was copied.",
@@ -8,1440 +8,3215 @@
    }
   },
   "not_imported": "Wikisource and Dicta abbreviation lists were NOT imported: license/terms were not verified. See README for how to add them.",
-  "notes": "expansions are ordered most-common-first within the corpus domain; an acronym may have several valid expansions."
+  "notes": "expansions are ordered most-common-first within the corpus domain; an acronym may have several valid expansions.",
+  "domains": {
+   "talmud": "תלמוד",
+   "halakha": "הלכה",
+   "responsa": "שו\"ת",
+   "general": "כללי"
+  },
+  "priors": "prior[domain] in 0..1 = how common this expansion is in that domain. These are HAND ESTIMATES, not corpus counts: derived from the entry's category profile, decayed 0.85 per position in the listed order, with explicit values for the 4 expansions added in v2. Replace with measured frequencies when a tagged corpus is available."
  },
  "entries": [
   {
    "abbr": "ר\"ל",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "ריש לקיש",
-    "רחמנא ליצלן",
-    "רוצה לומר"
+    {
+     "text": "ריש לקיש",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    },
+    {
+     "text": "רחמנא ליצלן",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.34,
+      "halakha": 0.34,
+      "responsa": 0.34,
+      "general": 0.51
+     }
+    },
+    {
+     "text": "רוצה לומר",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.29,
+      "halakha": 0.29,
+      "responsa": 0.29,
+      "general": 0.43
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "ע\"כ",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "עד כאן",
-    "על כרחך"
+    {
+     "text": "עד כאן",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    },
+    {
+     "text": "על כרחך",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.34,
+      "halakha": 0.34,
+      "responsa": 0.34,
+      "general": 0.51
+     }
+    },
+    {
+     "text": "על כן",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.3,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "מ\"מ",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "מכל מקום",
-    "מגיד משנה",
-    "מראה מקום"
+    {
+     "text": "מכל מקום",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    },
+    {
+     "text": "מגיד משנה",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.34,
+      "halakha": 0.34,
+      "responsa": 0.34,
+      "general": 0.51
+     }
+    },
+    {
+     "text": "מראה מקום",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.29,
+      "halakha": 0.29,
+      "responsa": 0.29,
+      "general": 0.43
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "ע\"א",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "עמוד א"
+    {
+     "text": "עמוד א",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ע\"ב",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "עמוד ב"
+    {
+     "text": "עמוד ב",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ב\"ה",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "בית הלל",
-    "ברוך השם",
-    "בעזרת השם"
+    {
+     "text": "בית הלל",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    },
+    {
+     "text": "ברוך השם",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.34,
+      "halakha": 0.34,
+      "responsa": 0.34,
+      "general": 0.51
+     }
+    },
+    {
+     "text": "בעזרת השם",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.29,
+      "halakha": 0.29,
+      "responsa": 0.29,
+      "general": 0.43
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "ב\"ש",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "בית שמאי"
+    {
+     "text": "בית שמאי",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ב\"ד",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "בית דין"
+    {
+     "text": "בית דין",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ב\"ב",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "בבא בתרא"
+    {
+     "text": "בבא בתרא",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ב\"ק",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "בבא קמא"
+    {
+     "text": "בבא קמא",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ב\"מ",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "בבא מציעא"
+    {
+     "text": "בבא מציעא",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ר\"ח",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "ראש חודש",
-    "רבינו חננאל",
-    "רבי חייא",
-    "רבינו חיים"
+    {
+     "text": "ראש חודש",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    },
+    {
+     "text": "רבינו חננאל",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.68,
+      "halakha": 0.26,
+      "responsa": 0.26,
+      "general": 0.17
+     }
+    },
+    {
+     "text": "רבי חייא",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.58,
+      "halakha": 0.22,
+      "responsa": 0.22,
+      "general": 0.14
+     }
+    },
+    {
+     "text": "רבינו חיים",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.49,
+      "halakha": 0.18,
+      "responsa": 0.18,
+      "general": 0.12
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ר\"ה",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "ראש השנה",
-    "רב הונא"
+    {
+     "text": "ראש השנה",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    },
+    {
+     "text": "רב הונא",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.68,
+      "halakha": 0.26,
+      "responsa": 0.26,
+      "general": 0.17
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ר\"ש",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "רבי שמעון",
-    "רבן שמעון",
-    "רבינו שמשון",
-    "רבי שמואל"
+    {
+     "text": "רבי שמעון",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    },
+    {
+     "text": "רבן שמעון",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.68,
+      "halakha": 0.26,
+      "responsa": 0.26,
+      "general": 0.17
+     }
+    },
+    {
+     "text": "רבינו שמשון",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.58,
+      "halakha": 0.22,
+      "responsa": 0.22,
+      "general": 0.14
+     }
+    },
+    {
+     "text": "רבי שמואל",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.49,
+      "halakha": 0.18,
+      "responsa": 0.18,
+      "general": 0.12
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ר\"י",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "רבי יהודה",
-    "רבי יוסי",
-    "רבי יוחנן",
-    "רבי ישמעאל",
-    "רבי יצחק",
-    "רבי יהושע",
-    "רבינו יונה",
-    "רבינו יצחק"
+    {
+     "text": "רבי יהודה",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    },
+    {
+     "text": "רבי יוסי",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.68,
+      "halakha": 0.26,
+      "responsa": 0.26,
+      "general": 0.17
+     }
+    },
+    {
+     "text": "רבי יוחנן",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.58,
+      "halakha": 0.22,
+      "responsa": 0.22,
+      "general": 0.14
+     }
+    },
+    {
+     "text": "רבי ישמעאל",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.49,
+      "halakha": 0.18,
+      "responsa": 0.18,
+      "general": 0.12
+     }
+    },
+    {
+     "text": "רבי יצחק",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.42,
+      "halakha": 0.16,
+      "responsa": 0.16,
+      "general": 0.1
+     }
+    },
+    {
+     "text": "רבי יהושע",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.35,
+      "halakha": 0.13,
+      "responsa": 0.13,
+      "general": 0.09
+     }
+    },
+    {
+     "text": "רבינו יונה",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.3,
+      "halakha": 0.11,
+      "responsa": 0.11,
+      "general": 0.08
+     }
+    },
+    {
+     "text": "רבינו יצחק",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.26,
+      "halakha": 0.1,
+      "responsa": 0.1,
+      "general": 0.06
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ר\"מ",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "רבי מאיר",
-    "רבי מנחם",
-    "רבינו משה"
+    {
+     "text": "רבי מאיר",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    },
+    {
+     "text": "רבי מנחם",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.68,
+      "halakha": 0.26,
+      "responsa": 0.26,
+      "general": 0.17
+     }
+    },
+    {
+     "text": "רבינו משה",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.58,
+      "halakha": 0.22,
+      "responsa": 0.22,
+      "general": 0.14
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ר\"ע",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "רבי עקיבא"
+    {
+     "text": "רבי עקיבא",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ר\"א",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "רבי אליעזר",
-    "רבי אלעזר",
-    "רבי אבא"
+    {
+     "text": "רבי אליעזר",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    },
+    {
+     "text": "רבי אלעזר",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.68,
+      "halakha": 0.26,
+      "responsa": 0.26,
+      "general": 0.17
+     }
+    },
+    {
+     "text": "רבי אבא",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.58,
+      "halakha": 0.22,
+      "responsa": 0.22,
+      "general": 0.14
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ר\"ג",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "רבן גמליאל",
-    "רבינו גרשום"
+    {
+     "text": "רבן גמליאל",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    },
+    {
+     "text": "רבינו גרשום",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.68,
+      "halakha": 0.26,
+      "responsa": 0.26,
+      "general": 0.17
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ר\"ת",
    "kind": "acronym",
-   "domain": "rishonim",
    "expansions": [
-    "רבינו תם",
-    "ראשי תיבות"
+    {
+     "text": "רבינו תם",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.6,
+      "halakha": 0.6,
+      "responsa": 0.5,
+      "general": 0.2
+     }
+    },
+    {
+     "text": "ראשי תיבות",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.51,
+      "halakha": 0.51,
+      "responsa": 0.42,
+      "general": 0.17
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "rishonim"
   },
   {
    "abbr": "רש\"י",
    "kind": "acronym",
-   "domain": "rishonim",
    "expansions": [
-    "רבי שלמה יצחקי"
+    {
+     "text": "רבי שלמה יצחקי",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.6,
+      "halakha": 0.6,
+      "responsa": 0.5,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "rishonim"
   },
   {
    "abbr": "רשב\"ם",
    "kind": "acronym",
-   "domain": "rishonim",
    "expansions": [
-    "רבי שמואל בן מאיר"
+    {
+     "text": "רבי שמואל בן מאיר",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.6,
+      "halakha": 0.6,
+      "responsa": 0.5,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "rishonim"
   },
   {
    "abbr": "רמב\"ם",
    "kind": "acronym",
-   "domain": "rishonim",
    "expansions": [
-    "רבי משה בן מימון"
+    {
+     "text": "רבי משה בן מימון",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.6,
+      "halakha": 0.6,
+      "responsa": 0.5,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "rishonim"
   },
   {
    "abbr": "רמב\"ן",
    "kind": "acronym",
-   "domain": "rishonim",
    "expansions": [
-    "רבי משה בן נחמן"
+    {
+     "text": "רבי משה בן נחמן",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.6,
+      "halakha": 0.6,
+      "responsa": 0.5,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "rishonim"
   },
   {
    "abbr": "רשב\"א",
    "kind": "acronym",
-   "domain": "rishonim",
    "expansions": [
-    "רבי שלמה בן אדרת"
+    {
+     "text": "רבי שלמה בן אדרת",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.6,
+      "halakha": 0.6,
+      "responsa": 0.5,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "rishonim"
   },
   {
    "abbr": "רא\"ש",
    "kind": "acronym",
-   "domain": "rishonim",
    "expansions": [
-    "רבינו אשר"
+    {
+     "text": "רבינו אשר",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.6,
+      "halakha": 0.6,
+      "responsa": 0.5,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "rishonim"
   },
   {
    "abbr": "ריטב\"א",
    "kind": "acronym",
-   "domain": "rishonim",
    "expansions": [
-    "רבי יום טוב בן אברהם אשבילי"
+    {
+     "text": "רבי יום טוב בן אברהם אשבילי",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.6,
+      "halakha": 0.6,
+      "responsa": 0.5,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "rishonim"
   },
   {
    "abbr": "ר\"ן",
    "kind": "acronym",
-   "domain": "rishonim",
    "expansions": [
-    "רבינו נסים"
+    {
+     "text": "רבינו נסים",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.6,
+      "halakha": 0.6,
+      "responsa": 0.5,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "rishonim"
   },
   {
    "abbr": "רי\"ף",
    "kind": "acronym",
-   "domain": "rishonim",
    "expansions": [
-    "רבי יצחק אלפסי"
+    {
+     "text": "רבי יצחק אלפסי",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.6,
+      "halakha": 0.6,
+      "responsa": 0.5,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "rishonim"
   },
   {
    "abbr": "ראב\"ד",
    "kind": "acronym",
-   "domain": "rishonim",
    "expansions": [
-    "רבי אברהם בן דוד"
+    {
+     "text": "רבי אברהם בן דוד",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.6,
+      "halakha": 0.6,
+      "responsa": 0.5,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "rishonim"
   },
   {
    "abbr": "ראב\"ע",
    "kind": "acronym",
-   "domain": "rishonim",
    "expansions": [
-    "רבי אברהם אבן עזרא"
+    {
+     "text": "רבי אברהם אבן עזרא",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.6,
+      "halakha": 0.6,
+      "responsa": 0.5,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "rishonim"
   },
   {
    "abbr": "רשב\"ג",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "רבן שמעון בן גמליאל"
+    {
+     "text": "רבן שמעון בן גמליאל",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "רשב\"י",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "רבי שמעון בר יוחאי"
+    {
+     "text": "רבי שמעון בר יוחאי",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "מהרש\"א",
    "kind": "acronym",
-   "domain": "poskim",
    "expansions": [
-    "מורנו הרב שמואל אליעזר איידלש"
+    {
+     "text": "מורנו הרב שמואל אליעזר איידלש",
+     "domain": "halakha",
+     "prior": {
+      "talmud": 0.2,
+      "halakha": 0.8,
+      "responsa": 0.7,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "poskim"
   },
   {
    "abbr": "מהר\"ם",
    "kind": "acronym",
-   "domain": "rishonim",
    "expansions": [
-    "מורנו הרב מאיר"
+    {
+     "text": "מורנו הרב מאיר",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.6,
+      "halakha": 0.6,
+      "responsa": 0.5,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "rishonim"
   },
   {
    "abbr": "רע\"ב",
    "kind": "acronym",
-   "domain": "poskim",
    "expansions": [
-    "רבי עובדיה מברטנורא"
+    {
+     "text": "רבי עובדיה מברטנורא",
+     "domain": "halakha",
+     "prior": {
+      "talmud": 0.2,
+      "halakha": 0.8,
+      "responsa": 0.7,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "poskim"
   },
   {
    "abbr": "ר\"י",
    "kind": "acronym",
-   "domain": "rishonim",
    "expansions": [
-    "רבינו יצחק"
+    {
+     "text": "רבינו יצחק",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.6,
+      "halakha": 0.6,
+      "responsa": 0.5,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "rishonim"
   },
   {
    "abbr": "רמ\"א",
    "kind": "acronym",
-   "domain": "poskim",
    "expansions": [
-    "רבי משה איסרליש"
+    {
+     "text": "רבי משה איסרליש",
+     "domain": "halakha",
+     "prior": {
+      "talmud": 0.2,
+      "halakha": 0.8,
+      "responsa": 0.7,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "poskim"
   },
   {
    "abbr": "ב\"י",
    "kind": "acronym",
-   "domain": "poskim",
    "expansions": [
-    "בית יוסף"
+    {
+     "text": "בית יוסף",
+     "domain": "halakha",
+     "prior": {
+      "talmud": 0.2,
+      "halakha": 0.8,
+      "responsa": 0.7,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "poskim"
   },
   {
    "abbr": "ש\"ך",
    "kind": "acronym",
-   "domain": "poskim",
    "expansions": [
-    "שפתי כהן"
+    {
+     "text": "שפתי כהן",
+     "domain": "halakha",
+     "prior": {
+      "talmud": 0.2,
+      "halakha": 0.8,
+      "responsa": 0.7,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "poskim"
   },
   {
    "abbr": "ט\"ז",
    "kind": "acronym",
-   "domain": "poskim",
    "expansions": [
-    "טורי זהב"
+    {
+     "text": "טורי זהב",
+     "domain": "halakha",
+     "prior": {
+      "talmud": 0.2,
+      "halakha": 0.8,
+      "responsa": 0.7,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "poskim"
   },
   {
    "abbr": "מג\"א",
    "kind": "acronym",
-   "domain": "poskim",
    "expansions": [
-    "מגן אברהם"
+    {
+     "text": "מגן אברהם",
+     "domain": "halakha",
+     "prior": {
+      "talmud": 0.2,
+      "halakha": 0.8,
+      "responsa": 0.7,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "poskim"
   },
   {
    "abbr": "משנ\"ב",
    "kind": "acronym",
-   "domain": "poskim",
    "expansions": [
-    "משנה ברורה"
+    {
+     "text": "משנה ברורה",
+     "domain": "halakha",
+     "prior": {
+      "talmud": 0.2,
+      "halakha": 0.8,
+      "responsa": 0.7,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "poskim"
   },
   {
    "abbr": "מ\"ב",
    "kind": "acronym",
-   "domain": "poskim",
    "expansions": [
-    "משנה ברורה"
+    {
+     "text": "משנה ברורה",
+     "domain": "halakha",
+     "prior": {
+      "talmud": 0.2,
+      "halakha": 0.8,
+      "responsa": 0.7,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "poskim"
   },
   {
    "abbr": "ביה\"ל",
    "kind": "acronym",
-   "domain": "poskim",
    "expansions": [
-    "ביאור הלכה"
+    {
+     "text": "ביאור הלכה",
+     "domain": "halakha",
+     "prior": {
+      "talmud": 0.2,
+      "halakha": 0.8,
+      "responsa": 0.7,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "poskim"
   },
   {
    "abbr": "שעה\"צ",
    "kind": "acronym",
-   "domain": "poskim",
    "expansions": [
-    "שער הציון"
+    {
+     "text": "שער הציון",
+     "domain": "halakha",
+     "prior": {
+      "talmud": 0.2,
+      "halakha": 0.8,
+      "responsa": 0.7,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "poskim"
   },
   {
    "abbr": "פמ\"ג",
    "kind": "acronym",
-   "domain": "poskim",
    "expansions": [
-    "פרי מגדים"
+    {
+     "text": "פרי מגדים",
+     "domain": "halakha",
+     "prior": {
+      "talmud": 0.2,
+      "halakha": 0.8,
+      "responsa": 0.7,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "poskim"
   },
   {
    "abbr": "שו\"ע",
    "kind": "acronym",
-   "domain": "poskim",
    "expansions": [
-    "שולחן ערוך"
+    {
+     "text": "שולחן ערוך",
+     "domain": "halakha",
+     "prior": {
+      "talmud": 0.2,
+      "halakha": 0.8,
+      "responsa": 0.7,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "poskim"
   },
   {
    "abbr": "או\"ח",
    "kind": "acronym",
-   "domain": "poskim",
    "expansions": [
-    "אורח חיים"
+    {
+     "text": "אורח חיים",
+     "domain": "halakha",
+     "prior": {
+      "talmud": 0.2,
+      "halakha": 0.8,
+      "responsa": 0.7,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "poskim"
   },
   {
    "abbr": "יו\"ד",
    "kind": "acronym",
-   "domain": "poskim",
    "expansions": [
-    "יורה דעה"
+    {
+     "text": "יורה דעה",
+     "domain": "halakha",
+     "prior": {
+      "talmud": 0.2,
+      "halakha": 0.8,
+      "responsa": 0.7,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "poskim"
   },
   {
    "abbr": "אה\"ע",
    "kind": "acronym",
-   "domain": "poskim",
    "expansions": [
-    "אבן העזר"
+    {
+     "text": "אבן העזר",
+     "domain": "halakha",
+     "prior": {
+      "talmud": 0.2,
+      "halakha": 0.8,
+      "responsa": 0.7,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "poskim"
   },
   {
    "abbr": "חו\"מ",
    "kind": "acronym",
-   "domain": "poskim",
    "expansions": [
-    "חושן משפט"
+    {
+     "text": "חושן משפט",
+     "domain": "halakha",
+     "prior": {
+      "talmud": 0.2,
+      "halakha": 0.8,
+      "responsa": 0.7,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "poskim"
   },
   {
    "abbr": "ס\"ק",
    "kind": "acronym",
-   "domain": "poskim",
    "expansions": [
-    "סעיף קטן"
+    {
+     "text": "סעיף קטן",
+     "domain": "halakha",
+     "prior": {
+      "talmud": 0.2,
+      "halakha": 0.8,
+      "responsa": 0.7,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "poskim"
   },
   {
    "abbr": "ב\"ח",
    "kind": "acronym",
-   "domain": "poskim",
    "expansions": [
-    "בית חדש"
+    {
+     "text": "בית חדש",
+     "domain": "halakha",
+     "prior": {
+      "talmud": 0.2,
+      "halakha": 0.8,
+      "responsa": 0.7,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "poskim"
   },
   {
    "abbr": "ד\"מ",
    "kind": "acronym",
-   "domain": "poskim",
    "expansions": [
-    "דרכי משה"
+    {
+     "text": "דרכי משה",
+     "domain": "halakha",
+     "prior": {
+      "talmud": 0.2,
+      "halakha": 0.8,
+      "responsa": 0.7,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "poskim"
   },
   {
    "abbr": "כ\"מ",
    "kind": "acronym",
-   "domain": "poskim",
    "expansions": [
-    "כסף משנה"
+    {
+     "text": "כסף משנה",
+     "domain": "halakha",
+     "prior": {
+      "talmud": 0.2,
+      "halakha": 0.8,
+      "responsa": 0.7,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "poskim"
   },
   {
    "abbr": "הגר\"א",
    "kind": "acronym",
-   "domain": "poskim",
    "expansions": [
-    "הגאון רבי אליהו"
+    {
+     "text": "הגאון רבי אליהו",
+     "domain": "halakha",
+     "prior": {
+      "talmud": 0.2,
+      "halakha": 0.8,
+      "responsa": 0.7,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "poskim"
   },
   {
    "abbr": "חזו\"א",
    "kind": "acronym",
-   "domain": "poskim",
    "expansions": [
-    "חזון איש"
+    {
+     "text": "חזון איש",
+     "domain": "halakha",
+     "prior": {
+      "talmud": 0.2,
+      "halakha": 0.8,
+      "responsa": 0.7,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "poskim"
   },
   {
    "abbr": "חז\"ל",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "חכמינו זכרונם לברכה"
+    {
+     "text": "חכמינו זכרונם לברכה",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "ז\"ל",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "זכרונו לברכה"
+    {
+     "text": "זכרונו לברכה",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "זצ\"ל",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "זכר צדיק לברכה"
+    {
+     "text": "זכר צדיק לברכה",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "הקב\"ה",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "הקדוש ברוך הוא"
+    {
+     "text": "הקדוש ברוך הוא",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "בע\"ה",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "בעזרת השם"
+    {
+     "text": "בעזרת השם",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "בס\"ד",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "בסייעתא דשמיא"
+    {
+     "text": "בסייעתא דשמיא",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "אי\"ה",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "אם ירצה השם"
+    {
+     "text": "אם ירצה השם",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "ח\"ו",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "חס ושלום"
+    {
+     "text": "חס ושלום",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    },
+    {
+     "text": "חס וחלילה",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.1,
+      "halakha": 0.3,
+      "responsa": 0.5,
+      "general": 0.7
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "ד\"ה",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "דיבור המתחיל"
+    {
+     "text": "דיבור המתחיל",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "תד\"ה",
    "kind": "acronym",
-   "domain": "rishonim",
    "expansions": [
-    "תוספות דיבור המתחיל"
+    {
+     "text": "תוספות דיבור המתחיל",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.6,
+      "halakha": 0.6,
+      "responsa": 0.5,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "rishonim"
   },
   {
    "abbr": "תוס'",
    "kind": "abbreviation",
-   "domain": "rishonim",
    "expansions": [
-    "תוספות",
-    "תוספתא"
+    {
+     "text": "תוספות",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.6,
+      "halakha": 0.6,
+      "responsa": 0.5,
+      "general": 0.2
+     }
+    },
+    {
+     "text": "תוספתא",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.51,
+      "halakha": 0.51,
+      "responsa": 0.42,
+      "general": 0.17
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "rishonim"
   },
   {
    "abbr": "סי'",
    "kind": "abbreviation",
-   "domain": "poskim",
    "expansions": [
-    "סימן"
+    {
+     "text": "סימן",
+     "domain": "halakha",
+     "prior": {
+      "talmud": 0.2,
+      "halakha": 0.8,
+      "responsa": 0.7,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "poskim"
   },
   {
    "abbr": "פי'",
    "kind": "abbreviation",
-   "domain": "general",
    "expansions": [
-    "פירוש"
+    {
+     "text": "פירוש",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "פרש\"י",
    "kind": "acronym",
-   "domain": "rishonim",
    "expansions": [
-    "פירש רש\"י"
+    {
+     "text": "פירש רש\"י",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.6,
+      "halakha": 0.6,
+      "responsa": 0.5,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "rishonim"
   },
   {
    "abbr": "הל'",
    "kind": "abbreviation",
-   "domain": "poskim",
    "expansions": [
-    "הלכות"
+    {
+     "text": "הלכות",
+     "domain": "halakha",
+     "prior": {
+      "talmud": 0.2,
+      "halakha": 0.8,
+      "responsa": 0.7,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "poskim"
   },
   {
    "abbr": "וכו'",
    "kind": "abbreviation",
-   "domain": "general",
    "expansions": [
-    "וכולי"
+    {
+     "text": "וכולי",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "כו'",
    "kind": "abbreviation",
-   "domain": "general",
    "expansions": [
-    "כולי"
+    {
+     "text": "כולי",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "עי'",
    "kind": "abbreviation",
-   "domain": "general",
    "expansions": [
-    "עיין"
+    {
+     "text": "עיין",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "וגו'",
    "kind": "abbreviation",
-   "domain": "general",
    "expansions": [
-    "וגומר"
+    {
+     "text": "וגומר",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "עיי\"ש",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "עיין שם"
+    {
+     "text": "עיין שם",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "ע\"ש",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "עיין שם",
-    "על שם"
+    {
+     "text": "עיין שם",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    },
+    {
+     "text": "על שם",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.34,
+      "halakha": 0.34,
+      "responsa": 0.34,
+      "general": 0.51
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "ע\"ז",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "עבודה זרה"
+    {
+     "text": "עבודה זרה",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    },
+    {
+     "text": "על זה",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.3,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.5
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ע\"י",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "על ידי"
+    {
+     "text": "על ידי",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "ע\"פ",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "על פי"
+    {
+     "text": "על פי",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "ע\"ד",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "על דעת",
-    "על דבר"
+    {
+     "text": "על דעת",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    },
+    {
+     "text": "על דבר",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.34,
+      "halakha": 0.34,
+      "responsa": 0.34,
+      "general": 0.51
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "ע\"מ",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "על מנת"
+    {
+     "text": "על מנת",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "ע\"ג",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "על גבי"
+    {
+     "text": "על גבי",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "ע\"ס",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "על סמך"
+    {
+     "text": "על סמך",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "עכ\"פ",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "על כל פנים"
+    {
+     "text": "על כל פנים",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "עכ\"ל",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "עד כאן לשונו"
+    {
+     "text": "עד כאן לשונו",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "עכ\"ד",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "עד כאן דבריו"
+    {
+     "text": "עד כאן דבריו",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "אע\"פ",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "אף על פי"
+    {
+     "text": "אף על פי",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "אע\"ג",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "אף על גב"
+    {
+     "text": "אף על גב",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "אעפ\"כ",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "אף על פי כן"
+    {
+     "text": "אף על פי כן",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ה\"ה",
    "kind": "acronym",
-   "domain": "rishonim",
    "expansions": [
-    "הוא הדין",
-    "הרי הוא"
+    {
+     "text": "הוא הדין",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.6,
+      "halakha": 0.6,
+      "responsa": 0.5,
+      "general": 0.2
+     }
+    },
+    {
+     "text": "הרי הוא",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.51,
+      "halakha": 0.51,
+      "responsa": 0.42,
+      "general": 0.17
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "rishonim"
   },
   {
    "abbr": "וה\"ה",
    "kind": "acronym",
-   "domain": "rishonim",
    "expansions": [
-    "והוא הדין"
+    {
+     "text": "והוא הדין",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.6,
+      "halakha": 0.6,
+      "responsa": 0.5,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "rishonim"
   },
   {
    "abbr": "ה\"ז",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "הרי זה"
+    {
+     "text": "הרי זה",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ה\"נ",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "הכי נמי",
-    "הכא נמי"
+    {
+     "text": "הכי נמי",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    },
+    {
+     "text": "הכא נמי",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.68,
+      "halakha": 0.26,
+      "responsa": 0.26,
+      "general": 0.17
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ה\"ק",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "הכי קאמר"
+    {
+     "text": "הכי קאמר",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ה\"ג",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "הכי גרסינן"
+    {
+     "text": "הכי גרסינן",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ה\"ד",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "היכי דמי"
+    {
+     "text": "היכי דמי",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ד\"א",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "דבר אחר"
+    {
+     "text": "דבר אחר",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ד\"ת",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "דברי תורה"
+    {
+     "text": "דברי תורה",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "מ\"ט",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "מאי טעמא"
+    {
+     "text": "מאי טעמא",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "מ\"ד",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "מאן דאמר"
+    {
+     "text": "מאן דאמר",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "מ\"ס",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "מר סבר"
+    {
+     "text": "מר סבר",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "מנ\"ל",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "מנא לן"
+    {
+     "text": "מנא לן",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "א\"ר",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "אמר רבי",
-    "אמר רב",
-    "אליה רבה"
+    {
+     "text": "אמר רבי",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    },
+    {
+     "text": "אמר רב",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.68,
+      "halakha": 0.26,
+      "responsa": 0.26,
+      "general": 0.17
+     }
+    },
+    {
+     "text": "אליה רבה",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.58,
+      "halakha": 0.22,
+      "responsa": 0.22,
+      "general": 0.14
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ק\"ו",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "קל וחומר"
+    {
+     "text": "קל וחומר",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ג\"ש",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "גזירה שוה"
+    {
+     "text": "גזירה שוה",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ק\"ש",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "קריאת שמע"
+    {
+     "text": "קריאת שמע",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ס\"ת",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "ספר תורה"
+    {
+     "text": "ספר תורה",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "ת\"ח",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "תלמיד חכם"
+    {
+     "text": "תלמיד חכם",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "ת\"ר",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "תנו רבנן"
+    {
+     "text": "תנו רבנן",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ת\"ש",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "תא שמע"
+    {
+     "text": "תא שמע",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ת\"ק",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "תנא קמא"
+    {
+     "text": "תנא קמא",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ת\"ל",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "תלמוד לומר"
+    {
+     "text": "תלמוד לומר",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ת\"ת",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "תלמוד תורה"
+    {
+     "text": "תלמוד תורה",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "ל\"ת",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "לא תעשה"
+    {
+     "text": "לא תעשה",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "מ\"ע",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "מצות עשה"
+    {
+     "text": "מצות עשה",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "נ\"מ",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "נפקא מינה"
+    {
+     "text": "נפקא מינה",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "נ\"ל",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "נראה לי"
+    {
+     "text": "נראה לי",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "ש\"ס",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "ששה סדרים"
+    {
+     "text": "ששה סדרים",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ש\"מ",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "שמע מינה"
+    {
+     "text": "שמע מינה",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "שו\"ת",
    "kind": "acronym",
-   "domain": "poskim",
    "expansions": [
-    "שאלות ותשובות"
+    {
+     "text": "שאלות ותשובות",
+     "domain": "halakha",
+     "prior": {
+      "talmud": 0.2,
+      "halakha": 0.8,
+      "responsa": 0.7,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "poskim"
   },
   {
    "abbr": "ס\"ל",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "סבירא ליה"
+    {
+     "text": "סבירא ליה",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ל\"ל",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "למה לי"
+    {
+     "text": "למה לי",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "לכ\"ע",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "לכולי עלמא"
+    {
+     "text": "לכולי עלמא",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ס\"ד",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "סלקא דעתך"
+    {
+     "text": "סלקא דעתך",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "כ\"ש",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "כל שכן"
+    {
+     "text": "כל שכן",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "כ\"כ",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "כל כך",
-    "כך כתב"
+    {
+     "text": "כל כך",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    },
+    {
+     "text": "כך כתב",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.34,
+      "halakha": 0.34,
+      "responsa": 0.34,
+      "general": 0.51
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "כ\"ז",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "כל זה"
+    {
+     "text": "כל זה",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "כ\"ג",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "כהן גדול"
+    {
+     "text": "כהן גדול",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ג\"כ",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "גם כן"
+    {
+     "text": "גם כן",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "א\"כ",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "אם כן"
+    {
+     "text": "אם כן",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "א\"ל",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "אמר ליה"
+    {
+     "text": "אמר ליה",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "א\"נ",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "או נימא"
+    {
+     "text": "או נימא",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "א\"צ",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "אין צריך"
+    {
+     "text": "אין צריך",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "אה\"נ",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "אין הכי נמי"
+    {
+     "text": "אין הכי נמי",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ל\"ש",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "לא שנא"
+    {
+     "text": "לא שנא",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "ל\"ק",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "לא קשיא"
+    {
+     "text": "לא קשיא",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "קמ\"ל",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "קא משמע לן"
+    {
+     "text": "קא משמע לן",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "י\"ל",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "יש לומר"
+    {
+     "text": "יש לומר",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "י\"א",
    "kind": "acronym",
-   "domain": "poskim",
    "expansions": [
-    "יש אומרים"
+    {
+     "text": "יש אומרים",
+     "domain": "halakha",
+     "prior": {
+      "talmud": 0.2,
+      "halakha": 0.8,
+      "responsa": 0.7,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "poskim"
   },
   {
    "abbr": "ר\"פ",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "ריש פרק"
+    {
+     "text": "ריש פרק",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "ס\"פ",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "סוף פרק"
+    {
+     "text": "סוף פרק",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "ר\"ס",
    "kind": "acronym",
-   "domain": "poskim",
    "expansions": [
-    "ראש סימן"
+    {
+     "text": "ראש סימן",
+     "domain": "halakha",
+     "prior": {
+      "talmud": 0.2,
+      "halakha": 0.8,
+      "responsa": 0.7,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "poskim"
   },
   {
    "abbr": "ס\"ס",
    "kind": "acronym",
-   "domain": "poskim",
    "expansions": [
-    "סוף סימן"
+    {
+     "text": "סוף סימן",
+     "domain": "halakha",
+     "prior": {
+      "talmud": 0.2,
+      "halakha": 0.8,
+      "responsa": 0.7,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "poskim"
   },
   {
    "abbr": "פ\"ק",
    "kind": "acronym",
-   "domain": "talmud",
    "expansions": [
-    "פרק קמא"
+    {
+     "text": "פרק קמא",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.8,
+      "halakha": 0.3,
+      "responsa": 0.3,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "talmud"
   },
   {
    "abbr": "הנ\"ל",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "הנזכר לעיל",
-    "הנזכר למעלה"
+    {
+     "text": "הנזכר לעיל",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    },
+    {
+     "text": "הנזכר למעלה",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.34,
+      "halakha": 0.34,
+      "responsa": 0.34,
+      "general": 0.51
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "כנ\"ל",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "כנזכר לעיל"
+    {
+     "text": "כנזכר לעיל",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "וכיו\"ב",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "וכיוצא בזה"
+    {
+     "text": "וכיוצא בזה",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "וכד'",
    "kind": "abbreviation",
-   "domain": "general",
    "expansions": [
-    "וכדומה"
+    {
+     "text": "וכדומה",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "ת\"י",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "תרגום יונתן"
+    {
+     "text": "תרגום יונתן",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    },
+    {
+     "text": "תלמוד ירושלמי",
+     "domain": "talmud",
+     "prior": {
+      "talmud": 0.6,
+      "halakha": 0.5,
+      "responsa": 0.3,
+      "general": 0.1
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "ת\"א",
    "kind": "acronym",
-   "domain": "general",
    "expansions": [
-    "תרגום אונקלוס"
+    {
+     "text": "תרגום אונקלוס",
+     "domain": "general",
+     "prior": {
+      "talmud": 0.4,
+      "halakha": 0.4,
+      "responsa": 0.4,
+      "general": 0.6
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "general"
   },
   {
    "abbr": "ח\"א",
    "kind": "acronym",
-   "domain": "poskim",
    "expansions": [
-    "חיי אדם",
-    "חלק א"
+    {
+     "text": "חיי אדם",
+     "domain": "halakha",
+     "prior": {
+      "talmud": 0.2,
+      "halakha": 0.8,
+      "responsa": 0.7,
+      "general": 0.2
+     }
+    },
+    {
+     "text": "חלק א",
+     "domain": "halakha",
+     "prior": {
+      "talmud": 0.17,
+      "halakha": 0.68,
+      "responsa": 0.59,
+      "general": 0.17
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "poskim"
   },
   {
    "abbr": "ח\"ב",
    "kind": "acronym",
-   "domain": "poskim",
    "expansions": [
-    "חלק ב"
+    {
+     "text": "חלק ב",
+     "domain": "halakha",
+     "prior": {
+      "talmud": 0.2,
+      "halakha": 0.8,
+      "responsa": 0.7,
+      "general": 0.2
+     }
+    }
    ],
-   "source": "curated-v1"
+   "source": "curated-v1",
+   "category": "poskim"
   }
  ]
 }
