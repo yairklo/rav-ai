@@ -6,9 +6,12 @@ License flags live on `versions` and are *enforced at display/export time*, neve
 
 from __future__ import annotations
 
+import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import (
+    JSON,
     BigInteger,
     Boolean,
     DateTime,
@@ -24,6 +27,9 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+# JSONB on PostgreSQL, plain JSON elsewhere (SQLite in unit tests).
+JsonType = JSON().with_variant(JSONB(), "postgresql")
 
 
 def _now() -> datetime:
@@ -265,3 +271,39 @@ class CardDependency(Base):
 
     card_id: Mapped[int] = mapped_column(ForeignKey("cards.id"), primary_key=True)
     depends_on_card_id: Mapped[int] = mapped_column(ForeignKey("cards.id"), primary_key=True)
+
+
+class Run(Base):
+    """One system run (a question answered by a model), kept for evals and future training data.
+
+    Owned by the evals package logically, but defined on the shared Base so that Alembic
+    migrates it together with the corpus.
+    """
+
+    __tablename__ = "runs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, index=True)
+
+    # Input
+    question_text: Mapped[str] = mapped_column(Text)
+    question_id: Mapped[str | None] = mapped_column(String(128), index=True)  # golden id, if any
+    golden_version: Mapped[str | None] = mapped_column(String(64))
+    model: Mapped[str] = mapped_column(String(128), index=True)
+    prompt_version: Mapped[str | None] = mapped_column(String(64))
+    prompt_hash: Mapped[str | None] = mapped_column(String(64), index=True)  # sha256 of the prompt
+
+    # What happened
+    retrieved_sources: Mapped[list[Any]] = mapped_column(JsonType, default=list)  # refs (+scores)
+    tool_calls: Mapped[list[Any]] = mapped_column(JsonType, default=list)
+    answer: Mapped[dict[str, Any] | None] = mapped_column(JsonType)  # Answer.model_dump()
+    error: Mapped[str | None] = mapped_column(Text)
+    latency_ms: Mapped[int | None] = mapped_column(Integer)
+
+    # Verification
+    verification: Mapped[dict[str, Any] | None] = mapped_column(JsonType)  # VerificationReport
+    verification_passed: Mapped[bool | None] = mapped_column(Boolean, index=True)
+
+    # Human/LLM review, filled later; gate for using the row as training data
+    review_label: Mapped[str | None] = mapped_column(String(32))
+    review_notes: Mapped[str | None] = mapped_column(Text)

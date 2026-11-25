@@ -7,7 +7,13 @@ dependencies = [
     "pydantic>=2.6",
     "pyyaml>=6",
     "sqlalchemy>=2.0",
+    "textnorm",
+    "rav-ai",
 ]
+
+[tool.uv.sources]
+textnorm = { workspace = true }
+rav-ai = { workspace = true }
 
 [project.scripts]
 rav-evals = "rav_evals.cli:main"
@@ -32,3 +38,4 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["db: needs Postgres (docker compose up -d); REQUIRE_DB=1 turns a skip into a failure"]

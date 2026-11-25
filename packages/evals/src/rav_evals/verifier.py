@@ -9,14 +9,14 @@ from typing import Literal, Protocol
 
 from pydantic import BaseModel
 
+from .normalization import normalize as default_normalize
 from .schema import Answer, Citation, ClaimType
-from .textnorm_stub import normalize as default_normalize
 
 Normalizer = Callable[[str], str]
 
 
 class SourceStore(Protocol):
-    """Fetch source text by canonical ref. The real implementation will use the DB."""
+    """Fetch source text by canonical ref. ``pg_store.PostgresSourceStore`` is the real one."""
 
     def get_text(self, ref: str) -> str | None:
         """Return the text for ``ref`` or None if no such ref exists."""
