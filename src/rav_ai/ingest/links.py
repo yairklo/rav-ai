@@ -62,6 +62,15 @@ def toc_titles(raw_dir: Path) -> set[str]:
     return out
 
 
+def work_prefix(book: str, works: dict[str, int]) -> str | None:
+    """Longest work title W such that `book` is 'W, <node>' (a node of a complex work)."""
+    best = None
+    for w in works:
+        if book.startswith(w + ", ") and (best is None or len(w) > len(best)):
+            best = w
+    return best
+
+
 def ingest_links(engine: Engine, raw_dir: Path, snap_id: int, log: Log = print) -> dict:
     stats: dict = {}
     raw = engine.raw_connection()
@@ -116,6 +125,13 @@ def ingest_links(engine: Engine, raw_dir: Path, snap_id: int, log: Log = print) 
         with cur.copy("COPY endpoint_res (c,t,ids,n,reason) FROM STDIN") as cp:
             for title, cits in by_book.items():
                 wid = works.get(title)
+                idx_title = title
+                if wid is None:
+                    # 'Text 1' may name a node of a complex work ("Tur, Orach Chayim"):
+                    # resolve inside the longest work title that prefixes it.
+                    parent = work_prefix(title, works)
+                    if parent is not None:
+                        wid, idx_title = works[parent], parent
                 if wid is None:
                     reason = "no_hebrew_version" if title in known else "book_not_in_export"
                     for c in cits:
@@ -127,7 +143,7 @@ def ingest_links(engine: Engine, raw_dir: Path, snap_id: int, log: Log = print) 
                                 FROM segments WHERE work_id=%s""",
                     (wid,),
                 )
-                idx = WorkIndex.build(title, cur2.fetchall())
+                idx = WorkIndex.build(idx_title, cur2.fetchall())
                 cur2.close()
                 for c in cits:
                     ids = idx.resolve(c)

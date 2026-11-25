@@ -196,6 +196,7 @@ def build_export(r: Path, sa_second: str = "סעיף ב") -> None:
         (f"{BER} 2a", f"{MB} 1", "", BER, MB),  # section-level endpoints
         (f"{SA} 1:1", "English Only Book 1", "", SA, "English Only Book"),
         (f"{SA} 1:1", "Mystery Book 1", "", SA, "Mystery Book"),
+        (f"{SA} 1:1", f"{BER}, Appendix 1", "", SA, f"{BER}, Appendix"),  # node of a real work
     ]
     body = "".join(
         f'"{a}","{b}",{t},"{x}","{y}",c,d\n' for a, b, t, x, y in rows for c, d in [("h", "h")]

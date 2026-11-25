@@ -97,13 +97,13 @@ def test_export_gate(engine, raw_dir, policy, tmp_path):
 def test_edges_resolution_and_bidirectionality(engine, raw_dir, policy):
     _, stats = run_import(engine, raw_dir, policy)
     ls = stats["links"]
-    assert ls["links_total"] == 7
+    assert ls["links_total"] == 8
     assert ls["unresolved_by_reason"] == {
-        "ref_not_found": 1,
+        "ref_not_found": 2,
         "no_hebrew_version": 1,
         "book_not_in_export": 1,
     }
-    assert ls["links_unresolved"] == 3
+    assert ls["links_unresolved"] == 4
     with Session(engine) as s:
 
         def linked(ref):

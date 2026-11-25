@@ -59,6 +59,7 @@ def test_unresolved_links_record_books(engine, raw_dir, policy):
         (SA, "English Only Book", "no_hebrew_version"),
         (SA, "Mystery Book", "book_not_in_export"),
         (BER, SA, "ref_not_found"),
+        (SA, f"{BER}, Appendix", "ref_not_found"),  # node of a work: not "book_not_in_export"
     }
 
 
@@ -259,3 +260,12 @@ def test_migrations_downgrade_upgrade_roundtrip(engine):
             )
         ).scalar()
     assert n == 512
+
+
+def test_work_prefix_picks_longest_parent():
+    from rav_ai.ingest.links import work_prefix
+
+    works = {"Tur": 1, "Tur HaArokh": 2, "Beit Yosef": 3}
+    assert work_prefix("Tur, Orach Chayim", works) == "Tur"
+    assert work_prefix("Tur HaArokh, Orach Chayim", works) == "Tur HaArokh"
+    assert work_prefix("Turim", works) is None
