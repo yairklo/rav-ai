@@ -8,9 +8,24 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 SCHEMA_VERSION = 1
+# position and Holder (and every kind that embeds a Holder) are at version 2 (KL-1-fix-2)
+_HOLDER_KINDS = {
+    "position",
+    "open_question",
+    "chakira",
+    "source_claim",
+    "commentary_note",
+    "method_principle",
+    "sugya_summary",
+}
+
+
+def schema_version_for(kind: str) -> int:
+    return 2 if kind in _HOLDER_KINDS else SCHEMA_VERSION
+
 
 EvRole = Literal[
     "states",
@@ -57,6 +72,19 @@ class Ev(_Base):
     w_start: int | None = None  # word index of the quote start (anchor_format = numbered)
 
 
+def default_role(evs: list[Ev], role: str) -> None:
+    """Evidence whose role the model did not state gets the claim-bearing default (K3 is strict
+    about these roles), never the lenient generic 'supports'."""
+    for e in evs:
+        if "role" not in e.model_fields_set:
+            e.role = role  # type: ignore[assignment]
+
+
+class QuotedIn(_Base):
+    work: str
+    evidence_ids: list[int | str] = []
+
+
 class Holder(_Base):
     label: str
     entity_slug: str | None = None
@@ -64,6 +92,14 @@ class Holder(_Base):
     tier: str | None = None
     attribution: Literal["direct", "reported"] = "direct"
     reported_by: str | None = None
+    known_via: Literal["direct", "quoted_only"] | None = "direct"
+    quoted_in: list[QuotedIn] | None = None
+
+    @model_validator(mode="after")
+    def _quoted_only(self) -> Holder:
+        if self.known_via == "quoted_only" and not self.quoted_in:
+            raise ValueError("known_via=quoted_only requires a non-empty quoted_in")
+        return self
 
 
 class Reading(_Base):
@@ -92,11 +128,20 @@ class Step(_Base):
             raise ValueError("text_he longer than 25 words")
         return v
 
+    @model_validator(mode="after")
+    def _roles(self) -> Step:
+        default_role(self.evidence, "states")
+        return self
+
 
 class Sugya(_Base):
     title_he: str
     start_seg: str
     end_seg: str
+    # the sugya continues before the first / after the last segment of the window (S1 merge
+    # carries it over to the neighbouring window)
+    open_start: bool = False
+    open_end: bool = False
     notes: str | None = None
 
 
@@ -134,6 +179,11 @@ class Condition(_Base):
     evidence: list[Ev] = []
 
 
+class Leniency(_Base):
+    text_he: str
+    evidence: list[Ev] = []
+
+
 class Position(_Base):
     issue: str
     holder: Holder
@@ -149,7 +199,33 @@ class Position(_Base):
     is_practical_ruling: bool = False
     relations: list[RelationRef] = []
     reading_only: bool = False  # set by check K5: evidence only from a lens source
+    read_by: Holder | None = None  # reading_only: the lens author who reads this view
+    attribution_grade: Literal["inferred_by_source"] | None = None  # set with reading_only
+    # KL-1-fix-2 (all optional; a field that is set needs evidence)
+    meakev: Literal["yes", "no", "disputed"] | None = None
+    obligation_type: (
+        Literal["din", "takana", "minhag_mevorach", "minhag", "minhag_taut", "midat_chasidut"]
+        | None
+    ) = None
+    leniency_reason: Leniency | None = None
+    instruction_scope: Literal["individual", "public"] | None = None
     notes: str | None = None
+
+    @model_validator(mode="after")
+    def _roles_and_fix2(self) -> Position:
+        default_role(self.evidence, "states")
+        if self.leniency_reason is not None:
+            default_role(self.leniency_reason.evidence, "states")
+        set_fields = [
+            n
+            for n in ("meakev", "obligation_type", "instruction_scope")
+            if getattr(self, n) is not None
+        ]
+        if set_fields and not self.evidence:
+            raise ValueError(f"{', '.join(set_fields)} set without evidence")
+        if self.leniency_reason is not None and not self.leniency_reason.evidence:
+            raise ValueError("leniency_reason set without evidence")
+        return self
 
 
 class OpenQuestion(_Base):
@@ -193,6 +269,11 @@ class SourceClaim(_Base):
     proposed_alternative: str | None = None  # kept apart from the source text, never replacing it
     consequence: str | None = None
     responses: list[Reading] = []
+
+    @model_validator(mode="after")
+    def _roles(self) -> SourceClaim:
+        default_role(self.holder_evidence, "attributes")
+        return self
 
 
 class GirsaVariant(_Base):

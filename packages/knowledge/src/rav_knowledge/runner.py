@@ -15,6 +15,7 @@ from rav_ai.db.models import (
     KlItem,
     KlItemSegment,
     KlJob,
+    KlOverride,
     KlTask,
     Segment,
     SegmentText,
@@ -23,10 +24,19 @@ from sqlalchemy import func, select, update
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from .config import KLConfig
+from .config import KLConfig, load_config
 from .evidence import SegText, reanchor
 from .stages import DAG, STAGES, RunContext, TaskSpec, stage_prompt
-from .store import current_item, load_scope, mark_stale_dependents, overrides_for, sha
+from .store import (
+    add_segments,
+    copy_evidence,
+    current_item,
+    load_scope,
+    mark_stale_dependents,
+    overrides_for,
+    sha,
+    write_item,
+)
 
 REPORT_DIR = ROOT / "reports" / "kl"
 
@@ -63,11 +73,86 @@ def _now() -> datetime:
 # ---- overrides ----------------------------------------------------------------------------
 
 
+def _human_version(
+    s: Session,
+    it: KlItem,
+    o: KlOverride,
+    *,
+    body: dict,
+    start_id: int | None = None,
+    end_id: int | None = None,
+    segment_ids: list[int] | None = None,
+) -> tuple[KlItem, bool]:
+    """A human decision never edits an item: it is a NEW version of the same item_key (verified,
+    no model, prompt_version='human'), made current; the previous one is kept, not current.
+    Returns (item, created); re-applying the same override to the same version creates nothing."""
+    h = sha(o.id, it.id)
+    existed = s.scalars(
+        select(KlItem.id).where(KlItem.item_key == it.item_key, KlItem.input_hash == h)
+    ).first()
+    title = body.get("title_he") or it.title_he
+    new = write_item(
+        s,
+        kind=it.kind,
+        item_key=it.item_key,
+        scope_key=it.scope_key,
+        body=body,
+        input_hash=h,
+        job_id=it.job_id,
+        model=None,
+        prompt_version="human",
+        prompt_hash=None,
+        schema_version=it.schema_version,
+        can_display_public=it.can_display_public,
+        can_train=it.can_train,
+        status="verified",
+        work_id=it.work_id,
+        start_segment_id=start_id or it.start_segment_id,
+        end_segment_id=end_id or it.end_segment_id,
+        title_he=title,
+        confidence=1.0,
+        source_version_ids=it.source_version_ids,
+        check_report=it.check_report,
+        search_text_he=title if it.kind == "sugya" else it.search_text_he,
+        make_current=True,
+    )
+    if existed is None:
+        if segment_ids is None:
+            segment_ids = list(
+                s.scalars(
+                    select(KlItemSegment.segment_id)
+                    .where(KlItemSegment.item_id == it.id)
+                    .order_by(KlItemSegment.ord)
+                )
+            )
+            roles = dict(
+                s.execute(
+                    select(KlItemSegment.segment_id, KlItemSegment.role).where(
+                        KlItemSegment.item_id == it.id
+                    )
+                ).all()
+            )
+        else:
+            roles = {}
+        add_segments(
+            s,
+            new,
+            [
+                (sid, roles.get(sid, "anchor" if i == 0 else "member"))
+                for i, sid in enumerate(segment_ids)
+            ],
+        )
+        copy_evidence(s, it.id, new.id)
+        s.flush()
+    return new, existed is None
+
+
 def apply_overrides(
     s: Session, item_ids: list[int], annotation_ids: list[int] | None = None
 ) -> int:
-    """Human decisions win over what a task just produced. Returns the number of conflicts
-    (a decision that the new output disagrees with; they also show in the kl_conflicts view)."""
+    """Human decisions win over what a task just produced. Returns the number of conflicts: a
+    decision that the NEW output disagrees with (an output equal to the decision is no conflict;
+    a decision already applied to this output is not counted again)."""
     conflicts = 0
     items = [s.get(KlItem, i) for i in item_ids]
     ovs = overrides_for(s, [i.item_key for i in items if i])
@@ -79,35 +164,40 @@ def apply_overrides(
             it.status, it.rejected_by, it.is_current = "rejected", "human", False
             conflicts += 1
         elif o.action == "edit" and isinstance(o.corrected, dict):
-            it.body = {**it.body, **o.corrected}
-            it.status = "verified"
-            conflicts += 1
+            if all(it.body.get(k) == v for k, v in o.corrected.items()):
+                continue  # the output already says what the human decided
+            _, created = _human_version(s, it, o, body={**it.body, **o.corrected})
+            conflicts += created
         elif o.action == "approve":
             if (o.corrected or {}).get("input_hash") == it.input_hash:
                 it.status = "verified"
             else:
                 conflicts += 1
         elif o.action == "set_boundary" and isinstance(o.corrected, dict):
-            _set_boundary(s, it, o.corrected)
-            conflicts += 1
+            conflicts += _set_boundary(s, it, o)
     for aid in annotation_ids or []:
         a = s.get(Annotation, aid)
+        if a is None:
+            continue
         key = f"abbrev:{a.segment_id}:{a.span_start}:{a.span_end}"
         o = overrides_for(s, [key]).get(key)
-        if a and o and o.action == "set_abbrev" and (o.corrected or {}).get("chosen"):
+        if o and o.action == "set_abbrev" and (o.corrected or {}).get("chosen"):
             a.chosen, a.status, a.origin = o.corrected["chosen"], "verified", "human"
             conflicts += 1
     s.flush()
     return conflicts
 
 
-def _set_boundary(s: Session, it: KlItem, corr: dict) -> None:
-    """corrected = {"start_ref": ..., "end_ref": ...} (either optional)."""
+def _set_boundary(s: Session, it: KlItem, o: KlOverride) -> int:
+    """corrected = {"start_ref": ..., "end_ref": ...} (either optional). Returns 1 on a new
+    human version, 0 when the output already has these boundaries."""
+    corr = o.corrected
     start = s.scalars(select(Segment).where(Segment.ref == corr.get("start_ref", ""))).first()
     end = s.scalars(select(Segment).where(Segment.ref == corr.get("end_ref", ""))).first()
-    cur_s = s.get(Segment, it.start_segment_id)
-    cur_e = s.get(Segment, it.end_segment_id)
-    start, end = start or cur_s, end or cur_e
+    start = start or s.get(Segment, it.start_segment_id)
+    end = end or s.get(Segment, it.end_segment_id)
+    if (start.id, end.id) == (it.start_segment_id, it.end_segment_id):
+        return 0
     ids = list(
         s.scalars(
             select(Segment.id)
@@ -119,16 +209,16 @@ def _set_boundary(s: Session, it: KlItem, corr: dict) -> None:
             .order_by(Segment.sort_key, Segment.id)
         )
     )
-    it.start_segment_id, it.end_segment_id = start.id, end.id
-    it.body = {**it.body, "start_ref": start.ref, "end_ref": end.ref}
-    it.status = "verified"
-    s.query(KlItemSegment).filter(KlItemSegment.item_id == it.id).delete()
-    for i, sid in enumerate(ids):
-        s.add(
-            KlItemSegment(
-                item_id=it.id, segment_id=sid, role="anchor" if i == 0 else "member", ord=i
-            )
-        )
+    _, created = _human_version(
+        s,
+        it,
+        o,
+        body={**it.body, "start_ref": start.ref, "end_ref": end.ref},
+        start_id=start.id,
+        end_id=end.id,
+        segment_ids=ids,
+    )
+    return int(created)
 
 
 # ---- run ----------------------------------------------------------------------------------
@@ -339,7 +429,7 @@ def run_stage(
 # ---- promote ------------------------------------------------------------------------------
 
 
-def evaluate_gate(s: Session, job: KlJob) -> tuple[bool, dict]:
+def evaluate_gate(s: Session, job: KlJob, cfg: KLConfig) -> tuple[bool, dict]:
     """The gate from ``rav-kl report`` if one was written for this job, else only the K checks."""
     f = REPORT_DIR / f"job_{job.id}.json"
     if f.exists():
@@ -359,17 +449,19 @@ def evaluate_gate(s: Session, job: KlJob) -> tuple[bool, dict]:
         for i in items
         if i.status != "rejected" and not (i.check_report or {}).get("ok", True)
     ]
-    ok = not bad and rejected / len(items) <= 0.5
+    ok = not bad and rejected / len(items) <= cfg.gate_max_rejected_fraction
     return ok, {"source": "k-checks", "items": len(items), "rejected": rejected, "failing": bad}
 
 
-def promote(engine: Engine, job_id: int, *, force_note: str | None = None) -> dict:
+def promote(
+    engine: Engine, job_id: int, *, force_note: str | None = None, cfg: KLConfig | None = None
+) -> dict:
     """Make a job's output current (rollback = promote an earlier job)."""
     with Session(engine) as s:
         job = s.get(KlJob, job_id)
         if job is None:
             raise PromoteRefused(f"no job {job_id}")
-        passed, gate = evaluate_gate(s, job)
+        passed, gate = evaluate_gate(s, job, cfg or load_config())
         if job.status in ("failed", "aborted", "running") and not force_note:
             raise PromoteRefused(f"job {job_id} is {job.status}")
         if not passed and not force_note:
@@ -519,7 +611,9 @@ def status(engine: Engine) -> list[dict]:
         return res
 
 
-def report(engine: Engine, job_id: int, out_dir: Path | None = None) -> dict:
+def report(
+    engine: Engine, job_id: int, out_dir: Path | None = None, cfg: KLConfig | None = None
+) -> dict:
     """Grounding metrics per job -> reports/kl/job_<id>.json (+ the gate used by promote)."""
     with Session(engine) as s:
         job = s.get(KlJob, job_id)
@@ -542,11 +636,12 @@ def report(engine: Engine, job_id: int, out_dir: Path | None = None) -> dict:
         for i in items:
             for f in (i.check_report or {}).get("findings", []):
                 codes[f["code"]] = codes.get(f["code"], 0) + 1
+        cfg = cfg or load_config()
         frac = located / total if total else 1.0
         passed = (
             bool(items or job.stage in ("s0", "s0b"))
-            and frac >= 0.9
-            and (not items or rejected / len(items) <= 0.5)
+            and frac >= cfg.gate_min_located_fraction
+            and (not items or rejected / len(items) <= cfg.gate_max_rejected_fraction)
         )
         rep = {
             "job": job_id,
@@ -557,7 +652,11 @@ def report(engine: Engine, job_id: int, out_dir: Path | None = None) -> dict:
             "evidence": evc,
             "located_fraction": round(frac, 4),
             "finding_codes": codes,
-            "gate": {"passed": passed, "min_located_fraction": 0.9, "max_rejected_fraction": 0.5},
+            "gate": {
+                "passed": passed,
+                "min_located_fraction": cfg.gate_min_located_fraction,
+                "max_rejected_fraction": cfg.gate_max_rejected_fraction,
+            },
         }
     d = out_dir or REPORT_DIR
     d.mkdir(parents=True, exist_ok=True)

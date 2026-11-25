@@ -3,7 +3,7 @@
 K1 schema  K2 evidence present  K3 located  K4 domain  K5 attribution by tier  K6 entailment
 (Protocol + stub)  K7 coverage (warn)  K8 sugya boundaries  K9 chronology  K10 source_claim
 holder  K11 source_claim target  K12 chakira side  K13 move graph  K14 S0 marker contradiction
-(warn, goes to the top of the review queue)  K15 position needs an issue.
+(warn, goes to the top of the review queue)  K15 position needs an issue  KM machloket sides.
 """
 
 from __future__ import annotations
@@ -141,6 +141,8 @@ class CheckContext:
     window_labels: set[str] = field(default_factory=set)
     entailment: EntailmentChecker = field(default_factory=StubEntailment)
     k3_max_fraction: float = 0.10
+    # K3 strictness is carried by the roles: step / position / holder_evidence default to a
+    # critical role in schemas.py
     issue_similarity_warn: float = 0.6
     step_max_words: int = 25
 
@@ -225,6 +227,20 @@ def k4_domain(ctx: CheckContext, r: CheckReport) -> None:
             r.add("K4", f"evidence outside the provided input: seg {e.ev.seg!r}", e.path)
 
 
+def _matches_source(name: str | None, seg: SegInfo) -> bool:
+    n = (name or "").strip()
+    return bool(n) and n in (seg.work_title, seg.author_slug)
+
+
+def _lens_holder(seg: SegInfo) -> Holder:
+    return Holder(
+        label=seg.author_slug or seg.work_title or "lens",
+        entity_slug=seg.author_slug,
+        work=seg.work_title,
+        tier=seg.tier,
+    )
+
+
 def k5_attribution(ctx: CheckContext, r: CheckReport) -> None:
     m = ctx.model
     if not isinstance(m, Position):
@@ -232,29 +248,49 @@ def k5_attribution(ctx: CheckContext, r: CheckReport) -> None:
     ev = [e for e in ctx.evidence if e.loc.status in ("located", "ambiguous") and e.seg]
     if not ev:
         return  # K2/K3 report it
-    non_lens = [e for e in ev if e.seg and e.seg.source_role not in ("lens", None)]
     h = m.holder
+
+    def holder_owns(e: EvRec) -> bool:
+        return bool(
+            e.seg
+            and (
+                (h.work and e.seg.work_title == h.work)
+                or (h.entity_slug and e.seg.author_slug == h.entity_slug)
+            )
+        )
+
+    non_lens = [e for e in ev if e.seg and e.seg.source_role not in ("lens", None)]
     if not non_lens:
+        if any(holder_owns(e) for e in ev):
+            return  # the holder is the lens author himself: his own method, not a reading
         # evidence only from a lens (or from an unregistered source: fail closed): the claim
         # becomes a reading of the lens author, not the holder's own view
+        lens = next((e.seg for e in ev if e.seg and e.seg.source_role == "lens"), None)
         m.reading_only = True
+        m.attribution_grade = "inferred_by_source"
+        if lens is not None:
+            m.read_by = _lens_holder(lens)
         r.downgrades.append("position")
         r.add("K5", "evidence only from a lens source: downgraded to reading", "", "warn")
         return
     if h.attribution == "reported":
         if not h.reported_by:
             r.add("K5", "reported attribution without reported_by", "holder")
+            return
+        by = [
+            e
+            for e in ev
+            if e.ev.role == "attributes" and e.seg and _matches_source(h.reported_by, e.seg)
+        ]
+        if not by:
+            r.add(
+                "K5",
+                "attribution=reported needs located evidence with role=attributes from the text "
+                "or author named in reported_by",
+                "holder",
+            )
         return
-    own = [
-        e
-        for e in non_lens
-        if e.seg
-        and (
-            (h.work and e.seg.work_title == h.work)
-            or (h.entity_slug and e.seg.author_slug == h.entity_slug)
-        )
-    ]
-    if not own:
+    if not any(holder_owns(e) for e in non_lens):
         r.add(
             "K5",
             "direct attribution needs evidence in the holder's own text "
@@ -305,6 +341,20 @@ def k8_boundaries(ctx: CheckContext, r: CheckReport) -> None:
             r.add("K8", f"overlapping sugyot: {t1!r} / {t2!r}")
     if not m.sugyot:
         r.add("K8", "no sugyot")
+
+
+def coverage_gaps(spans: list[tuple[int, int]], universe: list[int]) -> tuple[list[int], list[int]]:
+    """Every index of ``universe`` must lie in exactly one span (inclusive ends).
+
+    Returns (holes, overlaps): the indices that lie in no span / in more than one."""
+    holes, overlaps = [], []
+    for i in universe:
+        n = sum(1 for a, b in spans if a <= i <= b)
+        if n == 0:
+            holes.append(i)
+        elif n > 1:
+            overlaps.append(i)
+    return holes, overlaps
 
 
 def _rel_error(ctx: CheckContext, r: CheckReport, rel: str, frm: Holder | None, to: Holder | None):
@@ -447,11 +497,11 @@ def k_machloket(ctx: CheckContext, r: CheckReport) -> None:
     if not isinstance(m, Machloket):
         return
     if len(m.sides) < 2 or any(not s for s in m.sides):
-        r.add("K15", "machloket needs two non-empty sides")
+        r.add("KM", "machloket needs two non-empty sides")
     for side in m.sides:
         for pid in side:
             if ctx.position_issue.get(pid) != m.issue_id:
-                r.add("K15", f"position {pid} does not belong to issue {m.issue_id}")
+                r.add("KM", f"position {pid} does not belong to issue {m.issue_id}")
 
 
 ALL_CHECKS = (
@@ -505,6 +555,7 @@ __all__ = [
     "SegInfo",
     "StubEntailment",
     "collect_evidence",
+    "coverage_gaps",
     "confidence",
     "run_checks",
     "similarity",

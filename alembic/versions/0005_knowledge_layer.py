@@ -155,6 +155,7 @@ def upgrade() -> None:
         sa.Column("license_tier", sa.String(length=32), nullable=False),
         sa.Column("license_basis", sa.Text(), nullable=True),
         sa.Column("weight_tier", sa.String(length=12), nullable=True),
+        sa.Column("authority_areas", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column("added_by", sa.String(length=64), nullable=True),
         sa.Column("note", sa.Text(), nullable=True),
         sa.CheckConstraint(
@@ -365,6 +366,10 @@ def upgrade() -> None:
             "weight_label IN ('primary', 'alternative', 'snif_only', 'rejected', 'disputed')",
             name="ck_kl_reception_label",
         ),
+        sa.CheckConstraint(
+            "context IN ('iyun', 'lemaase', 'snif', 'shaat_hadchak', 'bediavad', 'public_instruction') OR context LIKE 'minhag:%'",
+            name="ck_kl_reception_context",
+        ),
         sa.ForeignKeyConstraint(
             ["target_item_id"],
             ["kl_items.id"],
@@ -392,7 +397,7 @@ def upgrade() -> None:
             name="ck_kl_relations_attribution",
         ),
         sa.CheckConstraint(
-            "rel IN ('objects_to', 'answers', 'supports', 'disputes', 'rules_like', 'qualifies', 'reads_as', 'aligns_with_side', 'rejects_reading', 'claims_error_in', 'depends_on_girsa', 'parallel_to', 'same_as', 'derived_from')",
+            "rel IN ('objects_to', 'answers', 'supports', 'disputes', 'rules_like', 'qualifies', 'reads_as', 'aligns_with_side', 'rejects_reading', 'claims_error_in', 'depends_on_girsa', 'parallel_to', 'same_as', 'derived_from', 'takes_precedence_over')",
             name="ck_kl_relations_rel",
         ),
         sa.CheckConstraint(
@@ -487,11 +492,16 @@ def upgrade() -> None:
         JOIN kl_items i ON i.item_key = o.target_key
         WHERE o.action IN ('reject', 'edit', 'approve', 'set_boundary')
           AND i.created_at > o.created_at
+          AND i.prompt_version IS DISTINCT FROM 'human'
         """
     )
+    for table in ("cards", "card_dependencies"):
+        op.execute(f"COMMENT ON TABLE {table} IS 'DEPRECATED: superseded by kl_items'")
 
 
 def downgrade() -> None:
+    for table in ("cards", "card_dependencies"):
+        op.execute(f"COMMENT ON TABLE {table} IS NULL")
     op.execute("DROP VIEW IF EXISTS kl_conflicts")
     op.drop_column("runs", "knowledge_items")
     op.drop_constraint("fk_annotations_job_id", "annotations", type_="foreignkey")

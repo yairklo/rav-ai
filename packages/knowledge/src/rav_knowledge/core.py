@@ -63,13 +63,23 @@ def markers_for(s: Session, inp: LoadedInput) -> dict[str, set[str]]:
 
 
 def build_records(
-    model: BaseModel, inp: LoadedInput, *, aid_labels: set[str] | None = None
+    model: BaseModel,
+    inp: LoadedInput,
+    *,
+    min_words: int = 2,
+    min_chars: int = 6,
 ) -> list[EvRec]:
     by_label = inp.by_label()
     recs = []
     for path, ev, claim_text in iter_evidence(model):
         x: InputSeg | None = by_label.get(ev.seg)
-        loc = locate(ev.quote, x.text if x else None, w_start=ev.w_start)
+        loc = locate(
+            ev.quote,
+            x.text if x else None,
+            w_start=ev.w_start,
+            min_words=min_words,
+            min_chars=min_chars,
+        )
         recs.append(EvRec(path, claim_text, ev, loc, x.info if x else None))
     return recs
 
@@ -108,7 +118,9 @@ def generate(
         ctx = CheckContext(
             kind=kind,
             model=parsed,
-            evidence=build_records(parsed, inp),
+            evidence=build_records(
+                parsed, inp, min_words=cfg.quote_min_words, min_chars=cfg.quote_min_chars
+            ),
             markers=markers,
             seg_order=seg_order,
             window_labels=set(seg_order),

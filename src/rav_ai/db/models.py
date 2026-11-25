@@ -399,6 +399,8 @@ KL_RELATIONS = (
     "parallel_to",
     "same_as",
     "derived_from",
+    # din kdima: from (the one that goes first) -> to (the displaced); a ruling, not shaat_hadchak
+    "takes_precedence_over",
 )
 KL_EVIDENCE_ROLES = (
     "states",
@@ -422,6 +424,20 @@ KL_TIERS = (
     "sugya_compendium",
     "modern_secondary",
     "girsa_witness",
+)
+
+
+KL_RECEPTION_CONTEXTS = (
+    "iyun",
+    "lemaase",
+    "snif",
+    "shaat_hadchak",
+    "bediavad",
+    "public_instruction",
+)
+KL_RECEPTION_CONTEXT_CHECK = (
+    "context IN ('iyun', 'lemaase', 'snif', 'shaat_hadchak', 'bediavad', 'public_instruction') "
+    "OR context LIKE 'minhag:%'"
 )
 
 
@@ -679,6 +695,9 @@ class KlSource(Base):
     license_tier: Mapped[str] = mapped_column(String(32), default="PUBLIC_COMMERCIAL")
     license_basis: Mapped[str | None] = mapped_column(Text)
     weight_tier: Mapped[str | None] = mapped_column(String(12))
+    # closed list validated in pydantic (rav_knowledge.sources.AUTHORITY_AREAS), NULL = not
+    # classified; information only (like weight_tier), no effect on selection
+    authority_areas: Mapped[list | None] = mapped_column(JSONB)
     added_by: Mapped[str | None] = mapped_column(String(64))
     note: Mapped[str | None] = mapped_column(Text)
 
@@ -722,12 +741,14 @@ class KlReception(Base):
         CheckConstraint(
             "weight_label <> 'rejected' OR context = 'lemaase'", name="ck_kl_reception_rejected"
         ),
+        CheckConstraint(KL_RECEPTION_CONTEXT_CHECK, name="ck_kl_reception_context"),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     target_item_id: Mapped[int] = mapped_column(ForeignKey("kl_items.id"))
     target_claim: Mapped[str] = mapped_column(String(64), default="")
-    context: Mapped[str] = mapped_column(String(48))  # iyun|lemaase|snif|shaat_hadchak|minhag:<x>
+    # iyun|lemaase|snif|shaat_hadchak|bediavad|public_instruction|minhag:<x>
+    context: Mapped[str] = mapped_column(String(48))
     weight_label: Mapped[str] = mapped_column(String(16))
     basis: Mapped[dict | None] = mapped_column(JSONB)
     policy_version: Mapped[str] = mapped_column(String(32))

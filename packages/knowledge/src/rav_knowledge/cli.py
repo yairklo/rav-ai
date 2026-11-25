@@ -57,7 +57,12 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument(
         "--role", required=True, choices=["primary", "lens", "witness", "reference_only"]
     )
-    p.add_argument("--license-tier", default="PUBLIC_COMMERCIAL")
+    p.add_argument(
+        "--license-tier",
+        required=True,
+        choices=["PUBLIC_COMMERCIAL", "NON_COMMERCIAL_ONLY", "PERSONAL_ONLY_RESTRICTED"],
+    )
+    p.add_argument("--authority-areas", help="comma-separated, from the closed list")
     p.add_argument("--weight-tier", choices=["core", "major", "extended", "long_tail"])
     sub.add_parser("conflicts", help="human decisions that a later output disagreed with")
     a = ap.parse_args(argv)
@@ -89,7 +94,11 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(row, ensure_ascii=False))
     elif a.cmd == "promote":
         try:
-            print(json.dumps(promote(engine, a.job, force_note=a.force), indent=2, default=str))
+            print(
+                json.dumps(
+                    promote(engine, a.job, force_note=a.force, cfg=cfg), indent=2, default=str
+                )
+            )
         except PromoteRefused as e:
             print(f"refused: {e}", file=sys.stderr)
             return 2
@@ -97,7 +106,7 @@ def main(argv: list[str] | None = None) -> int:
         ids = [int(x) for x in a.segments.split(",")] if a.segments else None
         print(json.dumps(invalidate(engine, ids)))
     elif a.cmd == "report":
-        print(json.dumps(report(engine, a.job), ensure_ascii=False, indent=2))
+        print(json.dumps(report(engine, a.job, cfg=cfg), ensure_ascii=False, indent=2))
     elif a.cmd == "seed-lenses":
         with Session(engine) as s:
             print(f"added {seed_lens_records(s)} kl_sources rows")
@@ -113,6 +122,7 @@ def main(argv: list[str] | None = None) -> int:
                 role=a.role,
                 license_tier=a.license_tier,
                 weight_tier=a.weight_tier,
+                authority_areas=a.authority_areas.split(",") if a.authority_areas else None,
                 added_by="cli",
             )
             s.commit()

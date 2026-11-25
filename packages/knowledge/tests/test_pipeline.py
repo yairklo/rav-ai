@@ -6,8 +6,10 @@ from rav_ai.db.models import (
     Annotation,
     KlEvidence,
     KlItem,
+    KlItemSegment,
     KlJob,
     KlLink,
+    KlOverride,
     KlTask,
     Segment,
     SegmentText,
@@ -25,6 +27,7 @@ from helpers import (
     s2_responder,
 )
 from rav_knowledge.runner import promote
+from rav_knowledge.store import sha
 
 
 def items(engine, kind=None, **where):
@@ -356,8 +359,6 @@ def test_verified_items_are_never_overwritten(world):
 
 
 def test_overrides_win_and_conflicts_are_queued(world):
-    from rav_ai.db.models import KlOverride
-
     pipeline(world.engine, ScriptedLLM(s1_responder()), ScriptedLLM(s2_responder))
     key = "summary:sugya:Shabbat 21a:1"
     with Session(world.engine) as s:
@@ -367,21 +368,57 @@ def test_overrides_win_and_conflicts_are_queued(world):
     new = [i for i in items(world.engine, "sugya_summary", job_id=r2.job_id) if i.item_key == key]
     assert new[0].status == "rejected" and new[0].rejected_by == "human"
     assert r2.stats["override_conflicts"] == 1
-    # an `edit` override replaces body fields and verifies the item
+    # an `edit` override never edits an item: it becomes a NEW verified version, made current
     with Session(world.engine) as s:
         s.add(KlOverride(target_key=key, action="edit", corrected={"title_he": "כותרת מתוקנת"}))
         s.commit()
     r3 = run(world.engine, "s2", ScriptedLLM(s2_responder), config=_model("anthropic/third"))
-    ed = [i for i in items(world.engine, "sugya_summary", job_id=r3.job_id) if i.item_key == key][0]
-    assert ed.status == "verified" and ed.body["title_he"] == "כותרת מתוקנת"
+    assert r3.stats["override_conflicts"] == 1
+    with Session(world.engine) as s:
+        versions = list(
+            s.scalars(select(KlItem).where(KlItem.item_key == key).order_by(KlItem.version))
+        )
+        cur = [v for v in versions if v.is_current]
+        assert len(cur) == 1
+        h = cur[0]
+        assert h.status == "verified" and h.body["title_he"] == "כותרת מתוקנת"
+        assert h.model is None and h.prompt_version == "human" and h.version == versions[-1].version
+        prev = versions[-2]  # the output that was edited: kept, no longer current, unchanged
+        assert not prev.is_current and prev.status == "generated"
+        assert prev.body["title_he"] != "כותרת מתוקנת" and prev.model == "anthropic/third"
+        assert h.input_hash == sha(
+            s.scalars(select(KlOverride).where(KlOverride.action == "edit")).one().id, prev.id
+        )
+        # evidence and search text were copied (and located again)
+        n_prev = s.scalar(
+            select(func.count()).select_from(KlEvidence).where(KlEvidence.item_id == prev.id)
+        )
+        n_new = s.scalar(
+            select(func.count()).select_from(KlEvidence).where(KlEvidence.item_id == h.id)
+        )
+        assert n_new == n_prev > 0 and h.search_text_he == prev.search_text_he
+    # the same input again: the decision is already applied, no new version, no new conflict
+    r4 = run(world.engine, "s2", ScriptedLLM(s2_responder), config=_model("anthropic/third"))
+    assert "override_conflicts" not in r4.stats
+    with Session(world.engine) as s:
+        assert s.scalar(
+            select(func.count()).select_from(KlItem).where(KlItem.item_key == key)
+        ) == len(versions)
+    # an output that already says what the human decided is no conflict
+    with Session(world.engine) as s:
+        s.add(KlOverride(target_key=key, action="edit", corrected={"title_he": "סוגיה א"}))
+        s.commit()
+    r5 = run(world.engine, "s2", ScriptedLLM(s2_responder), config=_model("anthropic/fifth"))
+    assert "override_conflicts" not in r5.stats
     with world.engine.connect() as c:
-        rows = c.execute(text("SELECT target_key, action FROM kl_conflicts")).all()
+        rows = c.execute(text("SELECT target_key, action, item_id FROM kl_conflicts")).all()
     assert any(r[0] == key for r in rows)
+    with Session(world.engine) as s:  # a human version is never listed as its own conflict
+        human_ids = set(s.scalars(select(KlItem.id).where(KlItem.prompt_version == "human")))
+    assert not human_ids & {r[2] for r in rows}
 
 
-def test_set_boundary_override(world):
-    from rav_ai.db.models import KlOverride
-
+def test_set_boundary_override_makes_a_new_human_version(world):
     run(world.engine, "s1", ScriptedLLM(s1_responder()))
     with Session(world.engine) as s:
         s.add(
@@ -395,15 +432,27 @@ def test_set_boundary_override(world):
     c = cfg()
     c.models = {**c.models, "s1": "anthropic/other"}
     r = run(world.engine, "s1", ScriptedLLM(s1_responder()), config=c)
-    new = [
-        i
-        for i in items(world.engine, "sugya", job_id=r.job_id)
-        if i.item_key == "sugya:Shabbat 21a:1"
-    ][0]
-    assert new.body["end_ref"] == "Shabbat 21b:1" and new.status == "verified"
+    assert r.stats["override_conflicts"] == 1
     with Session(world.engine) as s:
-        end = s.get(Segment, new.end_segment_id)
-        assert end.ref == "Shabbat 21b:1"
+        vs = list(
+            s.scalars(
+                select(KlItem)
+                .where(KlItem.item_key == "sugya:Shabbat 21a:1")
+                .order_by(KlItem.version)
+            )
+        )
+        cur = [v for v in vs if v.is_current]
+        assert len(cur) == 1 and cur[0].prompt_version == "human" and cur[0].status == "verified"
+        assert cur[0].body["end_ref"] == "Shabbat 21b:1"
+        assert s.get(Segment, cur[0].end_segment_id).ref == "Shabbat 21b:1"
+        segs = s.scalar(
+            select(func.count())
+            .select_from(KlItemSegment)
+            .where(KlItemSegment.item_id == cur[0].id)
+        )
+        assert segs == 3  # 21a:1 .. 21b:1 re-computed
+        # the decided-on output is untouched
+        assert vs[-2].body["end_ref"] == "Shabbat 21b:2" and not vs[-2].is_current
 
 
 def test_supersede_boundaries_at_scope_level_and_stale_dependents(world):

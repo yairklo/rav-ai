@@ -30,7 +30,7 @@ def test_orthography_and_final_letters_do_not_matter():
 def test_ellipsis_fragments_in_order():
     s = seg()
     assert fragments("אמר רב ... פטור") == ["אמר רב", "פטור"]
-    assert locate("מתני ... שמואל ... פטור", s).status == "located"
+    assert locate("מתני ... ושמואל ... פטור", s).status == "located"
     assert locate("פטור ... מתני", s).status == "not_found"  # wrong order
 
 

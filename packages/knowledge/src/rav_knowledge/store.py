@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 
 from .checks import SegInfo
 from .config import KLConfig
-from .evidence import SegText
+from .evidence import SegText, locate
 from .licensing import admit, admit_aid
 
 
@@ -261,6 +261,8 @@ def write_item(
     prompt_version: str | None,
     prompt_hash: str | None,
     schema_version: int,
+    can_display_public: bool,  # no default: licensing is fail-closed, the caller decides
+    can_train: bool,
     status: str = "generated",
     work_id: int | None = None,
     start_segment_id: int | None = None,
@@ -268,18 +270,18 @@ def write_item(
     title_he: str | None = None,
     confidence: float | None = None,
     source_version_ids: list[int] | None = None,
-    can_display_public: bool = True,
-    can_train: bool = True,
     check_report: dict | None = None,
     rejected_by: str | None = None,
     search_text_he: str | None = None,
     shadow: bool = False,
+    make_current: bool = False,
 ) -> KlItem:
     """Insert a new version (idempotent per (item_key, input_hash)).
 
     is_current rules: the first output for a key is current; later outputs (new prompt/model/
     input) are written NON-current until ``promote``; a verified current item is never replaced;
-    ``shadow`` (second-model runs) is never current.
+    ``shadow`` (second-model runs) is never current. ``make_current`` (human override versions)
+    demotes the current version and takes its place.
     """
     existing = s.scalars(
         select(KlItem).where(KlItem.item_key == item_key, KlItem.input_hash == input_hash)
@@ -287,6 +289,10 @@ def write_item(
     if existing is not None:
         return existing
     cur = current_item(s, item_key)
+    if make_current and cur is not None:
+        cur.is_current = False
+        s.flush()
+        cur = None
     version = (
         s.scalar(select(func.max(KlItem.version)).where(KlItem.item_key == item_key)) or 0
     ) + 1
@@ -302,7 +308,7 @@ def write_item(
         body=body,
         schema_version=schema_version,
         status=status,
-        is_current=(cur is None and not shadow and status != "rejected"),
+        is_current=(make_current or (cur is None and not shadow and status != "rejected")),
         confidence=confidence,
         input_hash=input_hash,
         job_id=job_id,
@@ -324,6 +330,49 @@ def write_item(
 def add_segments(s: Session, item: KlItem, rows: list[tuple[int, str]]) -> None:
     for i, (sid, role) in enumerate(rows):
         s.merge(KlItemSegment(item_id=item.id, segment_id=sid, role=role, ord=i))
+
+
+def copy_evidence(s: Session, src_item_id: int, dst_item_id: int) -> int:
+    """Copy the evidence rows of one item version to another and locate every quote again
+    against the current text (status / spans refreshed; a quote that is gone stays not_found)."""
+    n = 0
+    for e in s.scalars(select(KlEvidence).where(KlEvidence.item_id == src_item_id)):
+        st = (
+            s.scalars(
+                select(SegmentText).where(
+                    SegmentText.segment_id == e.segment_id, SegmentText.version_id == e.version_id
+                )
+            ).first()
+            if e.segment_id is not None and e.version_id is not None
+            else None
+        )
+        row = {
+            c.name: getattr(e, c.name) for c in KlEvidence.__table__.columns if c.name != "id"
+        } | {"item_id": dst_item_id}
+        if st is not None:
+            loc = locate(
+                e.quote,
+                SegText(
+                    st.segment_id,
+                    st.version_id,
+                    "",
+                    st.raw_hash,
+                    st.text_a,
+                    st.text_b,
+                    st.offsets_b,
+                ),
+            )
+            row.update(
+                span_start=loc.span_start,
+                span_end=loc.span_end,
+                quote_prefix=loc.quote_prefix,
+                quote_suffix=loc.quote_suffix,
+                raw_hash=loc.raw_hash,
+                locate_status=loc.status,
+            )
+        s.add(KlEvidence(**row))
+        n += 1
+    return n
 
 
 def add_link(s: Session, frm: int, to: int, rel: str) -> None:

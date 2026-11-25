@@ -55,12 +55,50 @@ def _word_starts(text: str) -> list[int]:
     return [m.start() for m in re.finditer(r"\S+", text)]
 
 
-def find_span(
-    quote: str, text_b: str, *, w_start: int | None = None, start_from: int = 0
-) -> tuple[int, int, bool] | None:
-    """(start, end, unique) of the quote in ``text_b`` or None. Fragments must occur in order.
+def _occurrences(frag: str, text: str, start_from: int = 0) -> list[int]:
+    """Start offsets of ``frag`` in ``text`` that begin and end on a word boundary."""
+    rx = re.compile(rf"(?<!\w){re.escape(frag)}(?!\w)")
+    out, pos = [], start_from
+    while True:
+        m = rx.search(text, pos)
+        if m is None:
+            return out
+        out.append(m.start())
+        pos = m.start() + 1
 
-    ``w_start`` (numbered anchors) picks the occurrence at/after that word index.
+
+def _complete(frags: list[str], first: int, text: str) -> int | None:
+    """End offset of the ordered fragments starting at ``first`` (greedy), or None."""
+    cur = first + len(frags[0])
+    for f in frags[1:]:
+        nxt = _occurrences(f, text, cur)
+        if not nxt:
+            return None
+        cur = nxt[0] + len(f)
+    return cur
+
+
+def is_short(frags: list[str], min_words: int, min_chars: int) -> bool:
+    joined = " ".join(frags)
+    return len(joined.split()) < min_words or len(joined) < min_chars
+
+
+def find_span(
+    quote: str,
+    text_b: str,
+    *,
+    w_start: int | None = None,
+    start_from: int = 0,
+    min_words: int = 2,
+    min_chars: int = 6,
+) -> tuple[int, int, bool] | None:
+    """(start, end, unique) of the quote in ``text_b`` or None.
+
+    Every fragment must begin and end on a word boundary ("רב" is not found inside "רבא");
+    fragments must occur in order. ``unique`` is False for a quote shorter than the threshold
+    (fewer than ``min_words`` words or ``min_chars`` chars) and when more than one ordered
+    occurrence of the whole quote exists. ``w_start`` (numbered anchors) picks the occurrence
+    at/after that word index and counts as unique.
     """
     frags = fragments(quote)
     if not frags:
@@ -70,26 +108,30 @@ def find_span(
         ws = _word_starts(text_b)
         if 0 <= w_start < len(ws):
             pos = max(pos, ws[w_start])
-    first = text_b.find(frags[0], pos)
-    if first < 0 and w_start is not None:  # the index was wrong: fall back to a plain search
-        first, pos = text_b.find(frags[0], start_from), start_from
-    if first < 0:
+    firsts = _occurrences(frags[0], text_b, pos)
+    if not firsts and w_start is not None:  # the index was wrong: fall back to a plain search
+        firsts = _occurrences(frags[0], text_b, start_from)
+        w_start = None
+    hits = [(f, e) for f in firsts if (e := _complete(frags, f, text_b)) is not None]
+    if not hits:
         return None
-    cur = first + len(frags[0])
-    for f in frags[1:]:
-        idx = text_b.find(f, cur)
-        if idx < 0:
-            return None
-        cur = idx + len(f)
-    unique = w_start is not None or len(frags) > 1 or text_b.count(frags[0]) == 1
-    return first, cur, unique
+    first, end = hits[0]
+    unique = (w_start is not None or len(hits) == 1) and not is_short(frags, min_words, min_chars)
+    return first, end, unique
 
 
-def locate(quote: str, seg: SegText | None, *, w_start: int | None = None) -> Located:
+def locate(
+    quote: str,
+    seg: SegText | None,
+    *,
+    w_start: int | None = None,
+    min_words: int = 2,
+    min_chars: int = 6,
+) -> Located:
     """Locate a quote in the text of ``seg`` (None = the label was not in the input)."""
     if seg is None:
         return Located("out_of_scope")
-    hit = find_span(quote, seg.text_b, w_start=w_start)
+    hit = find_span(quote, seg.text_b, w_start=w_start, min_words=min_words, min_chars=min_chars)
     if hit is None:
         return Located("not_found", seg.segment_id, seg.version_id, raw_hash=seg.raw_hash)
     s, e, unique = hit

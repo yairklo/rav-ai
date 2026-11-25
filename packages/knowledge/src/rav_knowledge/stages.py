@@ -28,13 +28,14 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 from textnorm import find_acronyms, find_citations, normalize, rank_candidates
 
+from .checks import coverage_gaps
 from .config import KLConfig
 from .core import GenResult, Usage, generate
 from .domain import domain_for
 from .licensing import item_permission
 from .llm_io import build_messages, count_tokens
 from .prompts import Prompt, load_prompt
-from .schemas import SCHEMA_VERSION
+from .schemas import SCHEMA_VERSION, schema_version_for
 from .store import (
     LoadedInput,
     Scope,
@@ -424,7 +425,6 @@ class S1:
     def plan(self, rc: RunContext, s: Session) -> list[TaskSpec]:
         specs: list[TaskSpec] = []
         wins = windows(rc.scope.pages, rc.cfg.window_amudim, rc.cfg.window_overlap)
-        all_ids = rc.scope.segment_ids
         for i, w in enumerate(wins):
             ids = [x for p in w for x in p.segment_ids]
             inp = load_input(s, ids, rc.cfg)
@@ -434,7 +434,6 @@ class S1:
             msgs = build_messages(rc.prompt, inp.segs, rc.cfg)
             ein, eout = _est(rc, msgs)
             last = i == len(wins) - 1
-            core = len(all_ids) if last else all_ids.index(w[-1].segment_ids[0])
             specs.append(
                 TaskSpec(
                     f"w:{i:03d}",
@@ -446,7 +445,7 @@ class S1:
                         rc.cfg.params(),
                         inp.raw_hashes,
                     ),
-                    {"segment_ids": ids, "window": i, "core_end_idx": core, "last": last},
+                    {"segment_ids": ids, "window": i, "last": last},
                     ein,
                     eout,
                 )
@@ -476,9 +475,15 @@ class S1:
             raise TaskFailed(f"boundaries rejected: {gen.error}", out.usage)
         order = {x.info.label: x for x in inp.segs}
         gidx = {sid: i for i, sid in enumerate(rc.scope.segment_ids)}
+        first_idx, last_idx = gidx[inp.segs[0].info.segment_id], gidx[inp.segs[-1].info.segment_id]
+        win, last = spec.payload["window"], spec.payload["last"]
+        derive = (
+            rc.cfg.window_overlap > 0
+        )  # with an overlap the edge is certain; else trust the LLM
         sugyot = []
         for sg in gen.body["sugyot"]:
             a, b = order[sg["start_seg"]], order[sg["end_seg"]]
+            si, ei = gidx[a.info.segment_id], gidx[b.info.segment_id]
             sugyot.append(
                 {
                     "title_he": sg["title_he"],
@@ -486,15 +491,19 @@ class S1:
                     "end_id": b.info.segment_id,
                     "start_ref": a.info.ref,
                     "end_ref": b.info.ref,
-                    "start_idx": gidx[a.info.segment_id],
-                    "end_idx": gidx[b.info.segment_id],
+                    "start_idx": si,
+                    "end_idx": ei,
+                    "open_start": win > 0
+                    and (bool(sg.get("open_start")) or (derive and si == first_idx)),
+                    "open_end": not last
+                    and (bool(sg.get("open_end")) or (derive and ei == last_idx)),
                 }
             )
         perm = item_permission([(x.version, x.source) for x in inp.segs])
         out.result = {
-            "window": spec.payload["window"],
-            "core_end_idx": spec.payload["core_end_idx"],
-            "last": spec.payload["last"],
+            "window": win,
+            "last": last,
+            "idx": [gidx[x.info.segment_id] for x in inp.segs],
             "sugyot": sugyot,
             "version_ids": inp.version_ids,
             "can_display_public": perm.can_display_public,
@@ -507,29 +516,45 @@ class S1:
         results = [
             r for k, r in sorted(rc.prior_results.items()) if k.startswith("w:") and r is not None
         ]
-        accepted: list[tuple[dict, dict]] = []
-        last_end = -1
-        for r in results:
-            for sg in sorted(r["sugyot"], key=lambda x: x["start_idx"]):
-                if not r["last"] and sg["end_idx"] >= r["core_end_idx"]:
-                    continue  # cut by the window edge: the next window sees it whole
-                if sg["start_idx"] <= last_end:
-                    continue
-                accepted.append((sg, r))
-                last_end = sg["end_idx"]
+        spans, universe = merge_windows(results)
         ids = rc.scope.segment_ids
+        holes, overlaps = coverage_gaps([(x["start_idx"], x["end_idx"]) for x in spans], universe)
+        findings: dict[int, list[str]] = {}  # span index -> messages
+
+        def flag(pred, msg: str) -> None:
+            for j, x in enumerate(spans):
+                if pred(x):
+                    findings.setdefault(j, []).append(msg)
+
+        for a, b in _ranges(holes):
+            msg = f"hole: segments {ids[a]}..{ids[b]} belong to no sugya"
+            flag(lambda x, a=a, b=b: x["end_idx"] == a - 1 or x["start_idx"] == b + 1, msg)
+        for a, b in _ranges(overlaps):
+            msg = f"overlap: segments {ids[a]}..{ids[b]} belong to more than one sugya"
+            flag(lambda x, a=a, b=b: x["start_idx"] <= b and x["end_idx"] >= a, msg)
         versions = sorted({v for r in results for v in r["version_ids"]})
         display = all(r["can_display_public"] for r in results)
         train = all(r["can_train"] for r in results)
-        for sg, _r in accepted:
+        for j, sg in enumerate(spans):
             seg_ids = ids[sg["start_idx"] : sg["end_idx"] + 1]
+            report = None
+            if j in findings:
+                report = {
+                    "ok": False,
+                    "findings": [
+                        {"code": "K8", "message": m, "path": "", "level": "error"}
+                        for m in findings[j]
+                    ],
+                    "downgrades": [],
+                    "queue_priority": True,
+                }
             item = write_item(
                 s,
                 kind="sugya",
                 item_key=f"sugya:{sg['start_ref']}",
                 scope_key=rc.scope.key,
                 body={k: sg[k] for k in ("title_he", "start_ref", "end_ref")},
-                input_hash=sha(spec.input_hash, sg["start_ref"], sg["end_ref"]),
+                input_hash=sha(spec.input_hash, sg["start_ref"], sg["end_ref"], sg["end_idx"]),
                 job_id=rc.job_id,
                 model=rc.model,
                 prompt_version=rc.prompt.version,
@@ -539,18 +564,76 @@ class S1:
                 start_segment_id=sg["start_id"],
                 end_segment_id=sg["end_id"],
                 title_he=sg["title_he"],
-                confidence=1.0,
+                confidence=1.0 if report is None else 0.3,
                 source_version_ids=versions,
                 can_display_public=display,
                 can_train=train,
+                check_report=report,
                 search_text_he=sg["title_he"],
             )
             add_segments(
                 s, item, [(sid, "anchor" if i == 0 else "member") for i, sid in enumerate(seg_ids)]
             )
             out.item_ids.append(item.id)
-        out.stats["sugyot"] = len(accepted)
+        out.stats["sugyot"] = len(spans)
+        if holes:
+            out.stats["coverage_holes"] = len(holes)
+        if overlaps:
+            out.stats["coverage_overlaps"] = len(overlaps)
         return out
+
+
+def _ranges(idx: list[int]) -> list[tuple[int, int]]:
+    out: list[tuple[int, int]] = []
+    for i in sorted(idx):
+        if out and out[-1][1] == i - 1:
+            out[-1] = (out[-1][0], i)
+        else:
+            out.append((i, i))
+    return out
+
+
+def merge_windows(results: list[dict]) -> tuple[list[dict], list[int]]:
+    """Stitch per-window sugyot into scope-level sugyot (pure function, window order).
+
+    A sugya cut by the right edge of a window (``open_end``) is carried to the next window; a
+    sugya of that window flagged ``open_start`` continues it (the carried title and start win,
+    the end comes from the continuation, and it may itself stay open). A sugya seen again in the
+    overlap is dropped. Returns (sugyot, universe of segment indices that were loaded)."""
+    spans: list[dict] = []
+    carry: dict | None = None
+    covered_to = -1
+    universe = sorted({i for r in results for i in r.get("idx", [])})
+
+    def finalize(sg: dict) -> None:
+        nonlocal covered_to
+        spans.append(sg)
+        covered_to = max(covered_to, sg["end_idx"])
+
+    for r in results:
+        for sg in sorted(r["sugyot"], key=lambda x: x["start_idx"]):
+            sg = dict(sg)
+            if carry is not None and sg["open_start"] and sg["start_idx"] <= carry["end_idx"] + 1:
+                if sg["end_idx"] > carry["end_idx"]:
+                    for k in ("end_id", "end_ref", "end_idx"):
+                        carry[k] = sg[k]
+                carry["open_end"] = sg["open_end"]
+                if not carry["open_end"]:
+                    finalize(carry)
+                    carry = None
+                continue
+            if carry is not None:  # nothing continued it: it ends where the window ended
+                finalize(carry)
+                carry = None
+            if sg["end_idx"] <= covered_to:
+                continue  # already accepted whole: seen again in the overlap
+            if sg["open_end"]:
+                carry = sg
+            else:
+                finalize(sg)
+    if carry is not None:
+        finalize(carry)
+    return spans, universe
 
 
 # ---- S2 ---------------------------------------------------------------------------------
@@ -661,7 +744,7 @@ class S2:
             model=model_id,
             prompt_version=rc.prompt.version,
             prompt_hash=rc.prompt.hash,
-            schema_version=SCHEMA_VERSION,
+            schema_version=schema_version_for("sugya_summary"),
             status="generated" if gen.ok else "rejected",
             work_id=sg.work_id,
             start_segment_id=sg.start_segment_id,

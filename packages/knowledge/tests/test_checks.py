@@ -95,7 +95,6 @@ def test_k3_critical_role_not_found_and_fraction():
     ok = [rec(f"evidence[{i}]", "supports") for i in range(10)] + [
         rec("evidence[10]", "supports", "not_found")
     ]
-    assert "K3" not in codes(run(pos(), ok), "error") or True  # 1/11 < 10%
     assert not [f for f in run(pos(), ok).errors if f.code == "K3"]
 
 
@@ -299,4 +298,4 @@ def test_k15_position_needs_a_known_issue_and_similar_issue_warns():
 def test_machloket_positions_must_belong_to_its_issue():
     m = Machloket(issue_id="issue:1", sides=[["p1"], ["p2"]])
     assert run(m, position_issue={"p1": "issue:1", "p2": "issue:1"}).ok
-    assert "K15" in codes(run(m, position_issue={"p1": "issue:1", "p2": "issue:2"}), "error")
+    assert "KM" in codes(run(m, position_issue={"p1": "issue:1", "p2": "issue:2"}), "error")

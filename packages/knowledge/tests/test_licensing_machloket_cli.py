@@ -105,7 +105,7 @@ def test_lens_records_are_registered_personal_only_and_idempotent(world):
 def _item(s, kind, key, body, **kw):
     return write_item(s, kind=kind, item_key=key, scope_key="s", body=body, input_hash=key,
                       job_id=None, model=None, prompt_version="t", prompt_hash=None,
-                      schema_version=1, **kw)  # fmt: skip
+                      schema_version=1, can_display_public=True, can_train=True, **kw)  # fmt: skip
 
 
 def _setup_issue(engine, labels):

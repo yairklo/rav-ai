@@ -6,30 +6,21 @@ from __future__ import annotations
 
 from rav_ai.db.models import KlItem, KlLink
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from .checks import CheckContext, run_checks
+from .queries import positions_by_issue
 from .schemas import SCHEMA_VERSION, Machloket
 from .store import add_link, sha, write_item
 
+Issue_ = aliased(KlItem)
 _GEMARA_TIERS = {"canonical", None}
 
 
 def _positions(s: Session, issue: KlItem) -> list[KlItem]:
-    return list(
-        s.scalars(
-            select(KlItem)
-            .join(KlLink, KlLink.from_item_id == KlItem.id)
-            .where(
-                KlLink.rel == "position_on",
-                KlLink.to_item_id == issue.id,
-                KlItem.kind == "position",
-                KlItem.is_current,
-                KlItem.status != "rejected",
-            )
-            .order_by(KlItem.id)
-        )
-    )
+    """Current, non-rejected positions of the issue (any version of it); reading_only ones
+    (a lens's reading, not a position) are not part of a machloket."""
+    return [p for p in positions_by_issue(s, issue.item_key) if p.status != "rejected"]
 
 
 def _kind(positions: list[KlItem]) -> str:
@@ -49,11 +40,14 @@ def build_machloket_candidate(
     if len(sides) < 2:
         return None
     sugyot = list(
-        s.scalars(
-            select(KlItem.item_key)
-            .join(KlLink, KlLink.to_item_id == KlItem.id)
-            .where(KlLink.from_item_id == issue.id, KlLink.rel == "raised_in")
-            .order_by(KlItem.id)
+        dict.fromkeys(
+            s.scalars(
+                select(KlItem.item_key)
+                .join(KlLink, KlLink.to_item_id == KlItem.id)
+                .join(Issue_, Issue_.id == KlLink.from_item_id)
+                .where(Issue_.item_key == issue.item_key, KlLink.rel == "raised_in")
+                .order_by(KlItem.id)
+            )
         )
     )
     body = Machloket(

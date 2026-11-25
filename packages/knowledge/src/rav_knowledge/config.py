@@ -41,6 +41,10 @@ class KLConfig:
     k3_not_found_max_fraction: float = 0.10
     step_max_words: int = 25
     issue_similarity_warn: float = 0.6
+    quote_min_words: int = 2  # a shorter quote is only 'ambiguous' (cannot be unique)
+    quote_min_chars: int = 6
+    gate_max_rejected_fraction: float = 0.1  # promote gate: max share of rejected items
+    gate_min_located_fraction: float = 0.9
 
     @property
     def use_steinsaltz_aid(self) -> bool:
@@ -108,6 +112,10 @@ def load_config(path: Path | None = None, **overrides) -> KLConfig:
         k3_not_found_max_fraction=float(th.get("k3_not_found_max_fraction", 0.10)),
         step_max_words=int(th.get("step_max_words", 25)),
         issue_similarity_warn=float(th.get("issue_similarity_warn", 0.6)),
+        quote_min_words=int(th.get("quote_min_words", 2)),
+        quote_min_chars=int(th.get("quote_min_chars", 6)),
+        gate_max_rejected_fraction=float(th.get("gate_max_rejected_fraction", 0.1)),
+        gate_min_located_fraction=float(th.get("gate_min_located_fraction", 0.9)),
     )
     for k, v in overrides.items():
         setattr(cfg, k, v)
