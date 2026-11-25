@@ -91,6 +91,7 @@ def upgrade() -> None:
         sa.Column("input_tokens", sa.Integer(), server_default="0", nullable=False),
         sa.Column("output_tokens", sa.Integer(), server_default="0", nullable=False),
         sa.Column("cost_usd", sa.Float(), server_default="0", nullable=False),
+        sa.Column("result", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.CheckConstraint(
             "state IN ('pending', 'running', 'done', 'failed', 'skipped')", name="ck_kl_tasks_state"
@@ -476,9 +477,22 @@ def upgrade() -> None:
             nullable=False,
         ),
     )
+    # Human decisions that a later model output has run into: review queue.
+    op.execute(
+        """
+        CREATE VIEW kl_conflicts AS
+        SELECT o.id AS override_id, o.target_key, o.action, i.id AS item_id,
+               i.version, i.job_id, i.status, i.created_at AS item_created_at
+        FROM kl_overrides o
+        JOIN kl_items i ON i.item_key = o.target_key
+        WHERE o.action IN ('reject', 'edit', 'approve', 'set_boundary')
+          AND i.created_at > o.created_at
+        """
+    )
 
 
 def downgrade() -> None:
+    op.execute("DROP VIEW IF EXISTS kl_conflicts")
     op.drop_column("runs", "knowledge_items")
     op.drop_constraint("fk_annotations_job_id", "annotations", type_="foreignkey")
     op.drop_constraint("fk_annotations_entity_id", "annotations", type_="foreignkey")
