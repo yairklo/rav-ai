@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import os
 import re
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-DATA_DIR = ROOT / "data"
+DATA_DIR = Path(os.environ.get("RAV_DATA_DIR", ROOT / "data"))
 RAW_DIR = DATA_DIR / "raw"
 DEFAULT_DB_URL = "postgresql+psycopg://rav:rav@localhost:54329/rav_ai"  # see docker-compose.yml
 POLICY_PATH = ROOT / "config" / "license_policy.toml"

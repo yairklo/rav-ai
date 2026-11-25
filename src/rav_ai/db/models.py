@@ -207,6 +207,8 @@ class UnresolvedLink(Base):
     edge_type: Mapped[str] = mapped_column(String(64))
     reason: Mapped[str] = mapped_column(String(48), index=True)
     side: Mapped[str] = mapped_column(String(4))  # a|b|both
+    book_a: Mapped[str | None] = mapped_column(String(256), index=True)  # Sefaria 'Text 1'
+    book_b: Mapped[str | None] = mapped_column(String(256), index=True)  # Sefaria 'Text 2'
 
 
 # ---- tables created now, populated by later stages -------------------------------------

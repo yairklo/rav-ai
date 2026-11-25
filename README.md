@@ -24,6 +24,7 @@ The `vector` extension is created by the first migration; nothing uses it yet.
 ## Pipeline
 
 ```powershell
+# 0. Optional: RAV_DATA_DIR=<dir> relocates data/ (raw files, snapshot manifests)
 # 1. Download (resumable via .part + HTTP Range; idempotent; data/raw is git-ignored)
 uv run rav-download --all --language Hebrew --links      # all Hebrew/Aramaic version files + schemas + links
 uv run rav-download --book "Berakhot" --language Hebrew  # or one book / --category Talmud
@@ -31,6 +32,8 @@ uv run rav-download --all --dry-run                      # show what would be fe
 
 # 2. Ingest = a dated snapshot (structure, text + 2 normalized forms, license flags, edges)
 uv run rav-ingest sefaria                  # resumable; unchanged files are skipped by hash
+uv run rav-ingest sefaria --renormalize   # recompute forms A/B/offsets in place (after a textnorm upgrade)
+uv run rav-ingest report                   # reports/ingest_report.md + reports/books.csv (per book)
 uv run rav-ingest diff                     # what changed in the latest snapshot
 uv run rav-ingest recompute-flags          # re-apply config/license_policy.toml, no re-import
 
