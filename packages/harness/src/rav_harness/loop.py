@@ -13,8 +13,9 @@ from rav_evals.schema import Answer, ClaimType
 
 from .config import HarnessConfig, load_config
 from .llm import LLM, LLMResponse, ToolCall
-from .prompt import DEFAULT_DISCLAIMER, SYSTEM_PROMPT
+from .prompt import DEFAULT_DISCLAIMER, PROMPT_VERSION, prompt_for, prompt_hash
 from .tools import ToolBox, timed_call
+from .validators import KnowledgeContext, validate_knowledge
 
 SUBMIT = "submit_answer"
 _SYSTEM_TYPES = (ClaimType.SYSTEM_CONCLUSION, ClaimType.CHIDUSH)
@@ -49,21 +50,31 @@ class HarnessResult:
     error: str | None = None
     run_id: str | None = None
     rejected_answers: list[str] = field(default_factory=list)
+    prompt_version: str = PROMPT_VERSION
+    prompt_hash: str = field(default_factory=prompt_hash)
+    knowledge: str = "off"
+    scope_gate: dict[str, Any] | None = None
+    knowledge_items: list[dict[str, Any]] = field(default_factory=list)  # runs.knowledge_items
 
 
-def validate_answer(arguments: dict[str, Any], retrieved: set[str]) -> tuple[Answer | None, str]:
-    """Deterministic guards on top of the schema. Returns (answer, error-for-the-model)."""
+def validate_answer(
+    arguments: dict[str, Any], retrieved: set[str], kl: KnowledgeContext | None = None
+) -> tuple[Answer | None, str]:
+    """Deterministic guards on top of the schema. Returns (answer, error-for-the-model).
+    ``kl`` (knowledge on) adds the knowledge-layer checks of :mod:`rav_harness.validators`."""
     data = {k: v for k, v in arguments.items() if k != "is_psak"}
     try:
         answer = Answer.model_validate(data)
     except ValidationError as e:
         return None, f"answer does not match the schema: {e}"
     problems = []
+    if kl is not None:
+        problems += validate_knowledge(answer, retrieved, kl)
     for i, c in enumerate(answer.claims):
         if c.type in _SYSTEM_TYPES and not c.flagged_as_system:
             problems.append(f"claim {i} ({c.type}) must set flagged_as_system=true")
         for cit in c.citations:
-            if cit.ref not in retrieved:
+            if cit.ref not in retrieved and not (kl and cit.ref in kl.layer_refs):
                 problems.append(
                     f"claim {i} cites {cit.ref!r}, which was not retrieved; "
                     "fetch it with get_segment first"
@@ -94,12 +105,35 @@ class Harness:
     ) -> HarnessResult:
         cfg = self.config
         t0 = time.perf_counter()
+        calls_log: list[dict[str, Any]] = []
+        kl_tools = getattr(self.tools, "kl", None) if cfg.knowledge != "off" else None
+        version, system_prompt, p_hash = prompt_for(
+            cfg.knowledge if kl_tools else "off", cfg.phrases
+        )
+        user_content = question
+        gate_dict: dict[str, Any] | None = None
+        if kl_tools is not None:
+            g0 = time.perf_counter()
+            gate = kl_tools.run_scope_gate(question)
+            gate_dict = gate.as_dict()
+            calls_log.append(
+                {
+                    "name": "scope_gate",
+                    "arguments": {"question": question},
+                    "ms": int((time.perf_counter() - g0) * 1000),
+                    "error": None,
+                }
+            )
+            user_content = (
+                question
+                + "\n\n[שער תחום, שלב דטרמיניסטי; השתמש בו, אל תצטט אותו]\n"
+                + json.dumps(gate_dict, ensure_ascii=False)
+            )
         messages: list[dict[str, Any]] = [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": question},
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_content},
         ]
         specs = [*self.tools.specs(), submit_spec()]
-        calls_log: list[dict[str, Any]] = []
         rejected: list[str] = []
         tokens_in = tokens_out = steps = 0
         cost: float | None = None
@@ -162,6 +196,21 @@ class Harness:
             latency_ms=int((time.perf_counter() - t0) * 1000),
             error=error,
             rejected_answers=rejected,
+            prompt_version=version,
+            prompt_hash=p_hash,
+            knowledge=cfg.knowledge if kl_tools else "off",
+            scope_gate=gate_dict,
+            knowledge_items=(
+                [
+                    {
+                        "meta": {"knowledge": cfg.knowledge, "scope_gate": gate_dict},
+                        "tool": "_meta",
+                    },
+                    *kl_tools.ctx.records,
+                ]
+                if kl_tools is not None
+                else []
+            ),
         )
         if self.recorder:
             res.run_id = self.recorder(res, question_id, golden_version)
@@ -174,7 +223,13 @@ class Harness:
             )
             return None, {"error": call.arguments_error}
         if call.name == SUBMIT:
-            ans, err = validate_answer(call.arguments, set(self.tools.retrieved_refs))
+            ans, err = validate_answer(
+                call.arguments,
+                set(self.tools.retrieved_refs),
+                getattr(getattr(self.tools, "kl", None), "ctx", None)
+                if self.config.knowledge != "off"
+                else None,
+            )
             log.append({"name": SUBMIT, "arguments": call.arguments, "error": err or None})
             if ans is None:
                 rejected.append(err)
