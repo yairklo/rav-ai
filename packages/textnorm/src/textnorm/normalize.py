@@ -10,8 +10,12 @@ import unicodedata
 from dataclasses import dataclass
 from typing import Literal
 
+from .markup import strip_sefaria_markup
+from .offsets import decode_spans, encode_spans
+
 Level = Literal["A", "B", "a", "b"]
 Plene = Literal["none", "double", "vav"]
+Markup = Literal["none", "sefaria"]
 
 _FINALS = str.maketrans("ךםןףץ", "כמנפצ")
 
@@ -65,6 +69,14 @@ class NormResult:
             )
             return pos, pos
         return self.spans[norm_start][0], self.spans[norm_end - 1][1]
+
+    def offsets_bytes(self) -> bytes:
+        """Compact serialization of the offset map (see ``textnorm.offsets``)."""
+        return encode_spans(self.spans)
+
+    @classmethod
+    def from_offsets(cls, original: str, text: str, data: bytes, level: str = "A") -> NormResult:
+        return cls(original=original, text=text, spans=decode_spans(data), level=level)
 
     def original_slice(self, norm_start: int, norm_end: int) -> str:
         s, e = self.map_span(norm_start, norm_end)
@@ -185,12 +197,17 @@ def _collapse(items: list[list]) -> list[list]:
     return out
 
 
-def normalize(text: str, level: Level = "A", *, plene: Plene = "double") -> NormResult:
+def normalize(
+    text: str, level: Level = "A", *, plene: Plene = "double", markup: Markup = "none"
+) -> NormResult:
     """Normalize ``text`` and return it with its offset map.
 
     Level A: strip niqqud, cantillation and control chars; fold final letters; unify hyphens/
     maqaf (-), geresh (') and gershayim/quotes ("), whitespace (single space, trimmed); lowercase
     non-Hebrew letters; NFKC-fold compatibility forms (presentation forms, NBSP...).
+
+    ``markup="sefaria"`` first removes Sefaria's inline HTML (tags, entities, footnotes; ``<br>``
+    becomes a space); offsets still refer to the original string.
 
     Level B: A plus punctuation removal (geresh/gershayim/quotes vanish without splitting the
     word: ר"ל -> רל; other punctuation becomes a space) and plene/defective folding, chosen by
@@ -206,7 +223,16 @@ def normalize(text: str, level: Level = "A", *, plene: Plene = "double") -> Norm
         raise ValueError(f"level must be 'A' or 'B', got {level!r}")
     if plene not in ("none", "double", "vav"):
         raise ValueError(f"bad plene mode {plene!r}")
-    items = _stage_a(text)
+    if markup not in ("none", "sefaria"):
+        raise ValueError(f"bad markup mode {markup!r}")
+    origin = None
+    work = text
+    if markup == "sefaria":  # drop tags/entities/footnotes; spans still point into `text`
+        work, origin = strip_sefaria_markup(text)
+    items = _stage_a(work)
+    if origin is not None:
+        for it in items:
+            it[1], it[2] = origin[it[1]][0], origin[it[2] - 1][1]
     if lv == "B":
         items = _stage_b_punct(items)
         items = _plene(items, plene)
