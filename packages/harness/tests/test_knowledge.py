@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import tomllib
 from dataclasses import replace
 
 import pytest
@@ -11,9 +12,10 @@ from sqlalchemy import text
 from conftest import FakeLLM, call, reply
 from kl_seed import SCOPE
 from rav_harness import HarnessConfig, load_config
+from rav_harness.config import parse_phrases
 from rav_harness.integration import build_harness
 from rav_harness.loop import validate_answer
-from rav_harness.prompt import PROMPT_VERSION, PROMPT_VERSION_KL
+from rav_harness.prompt import PROMPT_VERSION, PROMPT_VERSION_KL, knowledge_prompt
 from rav_harness.scope import extract_refs, hebrew_number, ref_in_scope, scope_key_in_scope
 from rav_harness.tools import CorpusTools
 from rav_harness.validators import ALL_CODES
@@ -27,8 +29,10 @@ def cfg(knowledge="base+lens", allow=True, **kw) -> HarnessConfig:
     return replace(load_config(), knowledge=knowledge, allow_personal_only=allow, **kw)
 
 
-def mk(session, knowledge="base+lens", mode="personal", allow=True, question=Q_IN) -> CorpusTools:
-    t = CorpusTools(session, mode, cfg(knowledge, allow))
+def mk(
+    session, knowledge="base+lens", mode="personal", allow=True, question=Q_IN, config=None
+) -> CorpusTools:
+    t = CorpusTools(session, mode, config or cfg(knowledge, allow))
     t.kl.run_scope_gate(question)
     return t
 
@@ -634,7 +638,7 @@ def test_make_answer_fn_passes_knowledge_items_to_run_output(session, kl):
     assert len(out.knowledge_items) > 1
 
 
-def test_sample_answer_with_coverage_notice_and_candidate_relation(session, kl, capsys):
+def test_sample_answer_with_coverage_notice_and_candidate_relation(session, kl):
     """The documented example: partial coverage, a Sefaria link shown as a candidate only."""
     session.add(KlCoverage(scope_key=SCOPE, work_id=kl.works.tos.id, status="not_ingested"))
     session.commit()
@@ -683,10 +687,198 @@ def test_sample_answer_with_coverage_notice_and_candidate_relation(session, kl, 
     import json
 
     print(json.dumps(res.answer.model_dump(mode="json"), ensure_ascii=False, indent=2))
-    capsys.readouterr()
 
 
 @pytest.mark.parametrize("bad", ["x", "knowledge"])
 def test_config_rejects_unknown_knowledge_mode(bad):
     with pytest.raises(ValueError):
         HarnessConfig().with_knowledge(bad)
+
+
+# ---- KL-2 fix-1 -----------------------------------------------------------------------------
+
+
+def _edge_rel(t, origin_label):
+    link = t.call("get_links", {"ref": "Shabbat 22a:1"})["items"]
+    link = [x for x in link if x["edge_type"].startswith("ein")][0]
+    assert link["candidate"] is True and link["evidence_origin"] == origin_label
+    return link, {
+        "table": "edges",
+        "id": link["id"],
+        "rel": link["rel"],
+        "evidence_origin": link["evidence_origin"],
+        "candidate": True,
+        "evidence_refs": [],
+    }
+
+
+@pytest.mark.parametrize("origin", ["sefaria", "heuristic", "llm", "weird"])
+def test_fix1_every_non_human_edge_is_a_candidate_whatever_its_origin(session, kl, origin):
+    session.execute(text("UPDATE edges SET origin = :o WHERE edge_type LIKE 'ein%'"), {"o": origin})
+    session.commit()
+    t = mk(session)
+    link, rel = _edge_rel(t, origin)
+    cfgp = t.kl.phrases
+    assert link["label"] == (cfgp.sefaria_label if origin == "sefaria" else cfgp.auto_link_label)
+    args = answer(claim("הטור מקביל", [cit("Shabbat 22a:1")], relations=[rel]))
+    err = rejected_with(t, args, "KL_CANDIDATE_ONLY", read=("Shabbat 22a:1",))
+    assert "Tur, Orach Chayim 670:1" in err
+    both = answer(
+        claim("הטור מקביל", [cit("Shabbat 22a:1"), cit("Tur, Orach Chayim 670:1")], relations=[rel])
+    )
+    assert check(t, both, read=("Tur, Orach Chayim 670:1",))[0] is not None
+
+
+def test_fix1_a_human_edge_is_not_a_candidate(session, kl):
+    session.execute(text("UPDATE edges SET origin = 'human' WHERE edge_type LIKE 'ein%'"))
+    session.commit()
+    link = mk(session).call("get_links", {"ref": "Shabbat 22a:1"})["items"]
+    link = [x for x in link if x["edge_type"].startswith("ein")][0]
+    assert link["candidate"] is False and link["label"] is None
+
+
+def test_fix1_candidate_check_cannot_be_bypassed_by_adding_another_relation(session, kl):
+    t = mk(session)
+    _, edge = _edge_rel(t, "sefaria")
+    dep = t.call("get_shitot", {"issue_key": "issue:candle-place"})["issues"][0]["related_issues"][
+        0
+    ]
+    assert dep["candidate"] is False
+    dep_rel = {k: dep[k] for k in ("table", "id", "rel", "evidence_origin", "candidate")}
+    dep_rel["evidence_refs"] = dep["evidence_refs"]
+    cm = "Shulchan Arukh, Choshen Mishpat 418:1"
+    only_one_end = answer(
+        claim("הטור מקביל ונידון תלוי", [cit("Shabbat 22a:1"), cit(cm)], relations=[edge, dep_rel])
+    )
+    rejected_with(t, only_one_end, "KL_CANDIDATE_ONLY", read=("Shabbat 22a:1", cm))
+    dep_first = answer(
+        claim("נידון תלוי והטור מקביל", [cit("Shabbat 22a:1"), cit(cm)], relations=[dep_rel, edge])
+    )
+    rejected_with(t, dep_first, "KL_CANDIDATE_ONLY")
+    ok = answer(
+        claim(
+            "הטור מקביל ונידון תלוי",
+            [cit("Shabbat 22a:1"), cit("Tur, Orach Chayim 670:1"), cit(cm)],
+            relations=[edge, dep_rel],
+        )
+    )
+    assert check(t, ok, read=("Tur, Orach Chayim 670:1",))[0] is not None
+
+
+def test_fix1_phrases_come_from_the_config_for_prompt_and_validator(session, kl):
+    base = load_config()
+    changed = replace(
+        base.phrases, out_of_scope="OUT-OF-SCOPE-X", unchecked="UNCHECKED-X:", unusual="UNUSUAL-X"
+    )
+    c = replace(base, knowledge="base+lens", phrases=changed)
+    prompt = knowledge_prompt(changed)
+    assert "OUT-OF-SCOPE-X" in prompt and "UNCHECKED-X:" in prompt and "UNUSUAL-X" in prompt
+    assert "מחוץ למה שנקלט ונבדק" not in prompt and "<<" not in prompt
+    assert knowledge_prompt(base.phrases) != prompt
+    # the validator follows: the old wording is now rejected, the new one accepted
+    o = mk(session, question=Q_OUT, config=c)
+    old = answer(claim("השאלה מחוץ למה שנקלט ונבדק"), scope="out_of_scope")
+    rejected_with(o, old, "KL_SCOPE_NOTICE")
+    assert check(o, answer(claim("OUT-OF-SCOPE-X: חסר"), scope="out_of_scope"))[0] is not None
+    # and so does the prompt the model is actually sent
+    llm = FakeLLM([reply(call("coverage", ref_or_query=Q_OUT))] * 1 + [reply()] * 0)
+    llm.responses.append(
+        reply(call("submit_answer", "z", **answer(claim("OUT-OF-SCOPE-X"), scope="out_of_scope")))
+    )
+    res = build_harness(session, llm, c, mode="personal").run(Q_OUT)
+    assert res.error is None and "OUT-OF-SCOPE-X" in llm.calls[0]["messages"][0]["content"]
+    assert res.prompt_hash != knowledge_prompt(base.phrases)  # hash is of the text actually used
+
+
+def _raw_phrases():
+    import pathlib
+
+    from rav_harness.config import CONFIG_PATH
+
+    return tomllib.loads(pathlib.Path(CONFIG_PATH).read_text(encoding="utf-8"))["knowledge"][
+        "phrases"
+    ]
+
+
+def test_fix1_phrases_config_is_validated():
+    assert parse_phrases(_raw_phrases()).practical.search("האם מותר")
+    for key, bad in [
+        ("unchecked", "  "),
+        ("notice", ""),
+        ("practical_regex", "("),
+        ("practical_regex", ""),
+        ("girsa_patterns", []),
+        ("maran_patterns", ["ok", "["]),
+        ("sa_psak_patterns", ["  "]),
+    ]:
+        raw = {**_raw_phrases(), key: bad}
+        with pytest.raises(ValueError, match="knowledge.phrases"):
+            parse_phrases(raw)
+    raw = _raw_phrases()
+    del raw["partial"]
+    with pytest.raises(ValueError, match="partial"):
+        parse_phrases(raw)
+    with pytest.raises(ValueError):  # knowledge on without phrases
+        HarnessConfig().with_knowledge("base")
+
+
+@pytest.mark.parametrize(
+    "txt",
+    ['ט"ס בדפוס כאן', 'ל"ג בכ"י', "לא גרסינן כך בגמרא", "הנוסח משובש כאן"],
+)
+def test_fix1_4d_more_girsa_wordings_need_a_witness(session, kl, txt):
+    rejected_with(mk(session), answer(claim(txt)), "KL_GIRSA_WITNESS")
+
+
+@pytest.mark.parametrize("txt", ["נוהגים כמרן בזה", "נהגו כמרן", "קיבלו פסקי מרן"])
+def test_fix1_4h_more_maran_wordings_need_documented_practice(session, kl, txt):
+    t = mk(session)
+    rejected_with(t, answer(claim(txt)), "KL_MARAN_INSTRUCTIONS")
+    t.call("get_shitot", {"issue_key": "issue:candle-place"})
+    sa = "Shulchan Arukh, Orach Chayim 670:1"
+    ok = answer(claim(txt, [cit(sa)], kl_item_ids=[kl.p_sa.id]))
+    assert check(t, ok, read=(sa,))[0] is not None
+
+
+@pytest.mark.parametrize("txt", ['הלכה כשו"ע', "מרן הכריע וכן הלכה", "וכן נקטינן כמרן"])
+def test_fix1_4i_more_shulchan_arukh_wordings_are_rejected(session, kl, txt):
+    rejected_with(mk(session), answer(claim(txt)), "KL_SA_PSAK")
+
+
+def test_fix1_relation_origin_is_the_weakest_of_both_ends(session, kl):
+    def origin_of_rules_like():
+        res = mk(session).call("get_shitot", {"issue_key": "issue:candle-place"})
+        return [
+            r
+            for r in res["relations"]
+            if r["rel"] == "rules_like" and r["from_item"] == kl.p_tur.id
+        ][0]["evidence_origin"]
+
+    session.get(KlItem, kl.p_tur.id).prompt_version = "human"
+    session.commit()
+    assert origin_of_rules_like() == "llm"  # from=human, to=llm -> weakest
+    session.get(KlItem, kl.p_rashi.id).prompt_version = "human"
+    session.commit()
+    assert origin_of_rules_like() == "human"
+    session.get(KlItem, kl.p_tur.id).prompt_version = "v1"
+    session.get(KlItem, kl.p_tur.id).check_report = {"judge": {"ok": True}}
+    session.commit()
+    assert origin_of_rules_like() == "judge"  # judge < human
+
+
+def test_fix1_unchecked_books_are_shown_by_hebrew_title_when_there_is_one(session, kl):
+    kl.works.tos.he_title = "תוספות על שבת"
+    session.add(KlCoverage(scope_key=SCOPE, work_id=kl.works.tos.id, status="not_ingested"))
+    session.commit()
+    t = mk(session)
+    gate = t.kl.ctx.gate
+    assert gate.unchecked_core_books == ["Tosafot on Shabbat"]
+    assert gate.unchecked_display == {"Tosafot on Shabbat": "תוספות על שבת"}
+    cov = t.call("coverage", {"ref_or_query": Q_IN})
+    assert cov["unchecked_display"] == {"Tosafot on Shabbat": "תוספות על שבת"}
+    base = claim("הגמרא", [cit("Shabbat 22a:1")])
+    hebrew = claim("כיסוי חלקי. ספרים מרכזיים שלא נבדקו כאן: תוספות על שבת")
+    english = claim("כיסוי חלקי. ספרים מרכזיים שלא נבדקו כאן: Tosafot on Shabbat")
+    kw = {"scope": "partial", "unchecked_core_books": ["Tosafot on Shabbat"]}
+    rejected_with(t, answer(base, english, **kw), "KL_COVERAGE_BOOKS", read=("Shabbat 22a:1",))
+    assert check(t, answer(base, hebrew, **kw))[0] is not None

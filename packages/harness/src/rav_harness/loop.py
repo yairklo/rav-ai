@@ -107,7 +107,9 @@ class Harness:
         t0 = time.perf_counter()
         calls_log: list[dict[str, Any]] = []
         kl_tools = getattr(self.tools, "kl", None) if cfg.knowledge != "off" else None
-        version, system_prompt, p_hash = prompt_for(cfg.knowledge if kl_tools else "off")
+        version, system_prompt, p_hash = prompt_for(
+            cfg.knowledge if kl_tools else "off", cfg.phrases
+        )
         user_content = question
         gate_dict: dict[str, Any] | None = None
         if kl_tools is not None:

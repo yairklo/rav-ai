@@ -43,3 +43,48 @@ kind = "number"
 work = "Shulchan Arukh, Orach Chayim"
 from = 670
 to = 685
+
+# Knowledge-layer wording and patterns. The prompt (prompt.py) and the validators
+# (validators.py) both read these, so the instruction and the check cannot drift apart.
+# *_patterns are regexes (OR-ed; matched on text with ״ normalized to "); none may be empty.
+[knowledge.phrases]
+notice = "עזר בלבד: השכבה היא מפה ולא מקור. אין לצטט אותה; כל ציטוט נקרא ב-get_segment ועובר אימות. השכבה עלולה לטעות; הטקסט קובע."
+sefaria_label = "קישור ספריא: מועמד, לא ראיה"
+auto_link_label = "קישור אוטומטי: מועמד, לא ראיה"
+candidate_msg = 'קישור עין משפט/מסורת הש"ס הוא מועמד, לא ראיה'
+unchecked = "ספרים מרכזיים שלא נבדקו כאן:"
+out_of_scope = "מחוץ למה שנקלט ונבדק"
+partial = "כיסוי חלקי"
+unusual = "פירוש חריג"
+no_disputant = "לא נמצא חולק בקורפוס שנבדק"
+more_readings = "יש הסברים נוספים"
+practical_regex = 'מותר|אסור|חייב|פטור|צריך|למעשה|לכתחילה|בדיעבד|מה הדין|מה דין|האם (?:אפשר|ניתן)|כיצד נוהגים'
+# 4d: a textual-witness / scribal-error claim
+girsa_patterns = [
+    'טעות סופר', 'צ"ל', 'ט"ס', 'ליתא', 'ל"ג', 'לא גרסינן', 'גרס[הא]', 'גירס[הא]', 'מגי[הע]',
+    'הגה[הת]', 'שגוי', 'משובש', 'טעות ב(?:דפוס|נוסח|גרסה)',
+    '(?:ה?דפוס|ה?נוסח|ה?כ"י)\s+(?:טועה|מוטעה)',
+]
+girsa_forbidden_patterns = [
+    '(?:ה?דפוס|ה?נוסח)\s+(?:שגוי|טועה|מוטעה|משובש)', 'טעות ב(?:דפוס|נוסח)',
+    'טעות סופר ב(?:דפוס|נוסח)',
+]
+# 4b: a lens-only claim that attributes a view to the Rishon
+holds_patterns = ['סובר', 'סבור', 'סוברים', 'ס"ל', 'פוסק', 'שיטתו', 'מכריע', 'דעתו', 'לשיטת']
+lens_mark_patterns = [
+    'לפי הבנת', 'הבנת', 'לפי פירוש', 'לפי ביאור', 'מבאר', 'מפרש', 'קורא', 'לפי דברי', 'מבין',
+]
+# 4h: "we received Maran's instructions"
+maran_patterns = [
+    '(?:קיבלנו|קבלנו|נוהגים לפי)\s+(?:את\s+)?הוראות\s+מרן', 'הוראות מרן',
+    '(?:נוהגים|נהגו)\s+כמרן', 'קיבל(?:ו|נו)\s+(?:את\s+)?פסקי\s+מרן',
+]
+# 4i: the Shulchan Arukh as verdict by fiat
+sa_psak_patterns = [
+    '(?:ה?שו"ע|השולחן ערוך|מרן)\s+(?:פסק|פוסק)[^.]{0,80}?ולכן',
+    'נדחה מפני (?:ה?שו"ע|השולחן ערוך|מרן)',
+    '(?:מאחר|כיוון|היות) ש(?:ה?שו"ע|מרן) פסק',
+    'הלכה כ(?:שו"ע|שולחן ערוך)', 'מרן הכריע וכן הלכה', '(?:וכן )?נקטינן כמרן',
+]
+silence_patterns = ['אין (?:מחלוקת|חולק)', 'לא נחלקו', 'דעה אחת בלבד', 'כולם מסכימים']
+disputant_patterns = ['חולק', 'חולקים', 'חלוק']

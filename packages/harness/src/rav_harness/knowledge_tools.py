@@ -50,11 +50,7 @@ from .validators import KnowledgeContext
 
 KNOWN_GAPS_PATH = ROOT / "config" / "known_gaps.toml"
 
-NOTICE = (
-    "עזר בלבד: השכבה היא מפה ולא מקור. אין לצטט אותה; כל ציטוט נקרא ב-get_segment "
-    "ועובר אימות. השכבה עלולה לטעות; הטקסט קובע."
-)
-SEFARIA_LABEL = "קישור ספריא: מועמד, לא ראיה"
+ORIGIN_RANK = {"llm": 0, "judge": 1, "human": 2}
 NO_SOURCE = "אין מקור"
 PERSONAL = "PERSONAL_ONLY_RESTRICTED"
 # items from these tiers (or from a role=lens source) are the "lens" layer: hidden in base
@@ -104,10 +100,11 @@ def clip(text: str | None, n: int) -> str:
     return " ".join(words[:n]) + (" …" if len(words) > n else "")
 
 
-def is_candidate(origin: str | None) -> bool:
-    """Sefaria links (Ein Mishpat, Masoret HaShas, ...) are candidates, not evidence.
-    Interim rule until rav_ai.links_policy.is_candidate (ingest PR 3) is merged."""
-    return origin == "sefaria"
+# TODO(links_policy): replace with rav_ai.links_policy.is_candidate (ingest PR 3)
+def is_edge_candidate(origin: str | None) -> bool:
+    """Fail closed: an ``edges`` link is a candidate, never evidence, unless a human made it.
+    sefaria, heuristic, llm, any unknown value and NULL are all candidates."""
+    return origin != "human"
 
 
 def _spec(name: str, description: str, properties: dict, required: list[str]) -> dict:
@@ -191,7 +188,12 @@ KL_SPECS: dict[str, dict] = {
 class KnowledgeTools:
     def __init__(self, session: Session, cfg: HarnessConfig, mode: str):
         self.session, self.cfg, self.mode = session, cfg, mode
-        self.ctx = KnowledgeContext(session=session, mode=mode, knowledge=cfg.knowledge)
+        if cfg.phrases is None:
+            raise ValueError("knowledge tools need [knowledge.phrases] in config/harness.toml")
+        self.phrases = cfg.phrases
+        self.ctx = KnowledgeContext(
+            session=session, phrases=cfg.phrases, mode=mode, knowledge=cfg.knowledge
+        )
         self._origin_cache: dict[int, str] = {}
 
     # ---- public --------------------------------------------------------------------------
@@ -216,7 +218,7 @@ class KnowledgeTools:
     def _env(self, tool: str, **payload: Any) -> dict[str, Any]:
         return {
             "layer": "knowledge",
-            "notice": NOTICE,
+            "notice": self.phrases.notice,
             "tool": tool,
             "knowledge": self.cfg.knowledge,
             **payload,
@@ -322,6 +324,10 @@ class KnowledgeTools:
         )
         return {i.id: (i.job_id if i.job_id in promoted else None) for i in items}
 
+    def _origin_of(self, *item_ids: int) -> str:
+        """Weakest evidence_origin of the given ends (llm < judge < human)."""
+        return min((self._origin(i) for i in item_ids), key=ORIGIN_RANK.__getitem__)
+
     def _origin(self, item_id: int) -> str:
         """evidence_origin of an item: llm | judge | human. The schema has no column for it,
         so it is derived: human reviewer/override > judge check > llm."""
@@ -415,7 +421,7 @@ class KnowledgeTools:
         for r in rels:
             if r.from_item_id not in visible or r.to_item_id not in visible:
                 continue  # an end that is filtered out must not leak through a relation
-            origin = self._origin(r.from_item_id)
+            origin = self._origin_of(r.from_item_id, r.to_item_id)
             ev = self._relation_evidence(r)
             view = {
                 "table": "kl_relations",
@@ -426,7 +432,7 @@ class KnowledgeTools:
                 "attribution": r.attribution,
                 "stance": r.stance,
                 "evidence_origin": origin,
-                "candidate": is_candidate(origin),
+                "candidate": origin == "sefaria",
                 "evidence_refs": ev,
             }
             self.ctx.relations_seen[("kl_relations", r.id)] = {**view, "endpoints": ev}
@@ -461,7 +467,7 @@ class KnowledgeTools:
                     if ref not in ev:
                         ev.append(ref)
             self.ctx.layer_refs.update(ev)
-            origin = self._origin(lk.from_item_id)
+            origin = self._origin_of(lk.from_item_id, lk.to_item_id)
             view = {
                 "table": "kl_links",
                 "id": lk.id,
@@ -471,7 +477,7 @@ class KnowledgeTools:
                 "attribution": None,
                 "stance": None,
                 "evidence_origin": origin,
-                "candidate": is_candidate(origin),
+                "candidate": origin == "sefaria",
                 "evidence_refs": ev[:12],
                 "same_nidon": False,
             }
@@ -896,7 +902,8 @@ class KnowledgeTools:
         items = []
         for e in edges:
             ra, rb = refs.get(e.segment_a_id), refs.get(e.segment_b_id)
-            cand = is_candidate(e.origin)
+            cand = is_edge_candidate(e.origin)
+            origin = e.origin or "unknown"
             view = {
                 "table": "edges",
                 "id": e.id,
@@ -907,9 +914,15 @@ class KnowledgeTools:
                 "citation_a": e.citation_a,
                 "citation_b": e.citation_b,
                 "candidate": cand,
-                "evidence_origin": e.origin,
+                "evidence_origin": origin,
                 "evidence_refs": [],
-                "label": SEFARIA_LABEL if cand else "קישור לא-ספריא; עדיין עזר בלבד",
+                "label": (
+                    self.phrases.sefaria_label
+                    if origin == "sefaria"
+                    else self.phrases.auto_link_label
+                    if cand
+                    else None
+                ),
             }
             self.ctx.relations_seen[("edges", e.id)] = {
                 **view,
@@ -968,9 +981,12 @@ class KnowledgeTools:
                 out.append(work)
         return out
 
-    def _unchecked_core(self, refs: list[str], scope_keys: list[str]) -> list[str]:
+    def _unchecked_core(
+        self, refs: list[str], scope_keys: list[str]
+    ) -> tuple[list[str], dict[str, str]]:
+        """(titles, title -> name shown in the answer text: he_title when there is one)."""
         rows = self.session.execute(
-            select(KlCoverage.scope_key, Work.title)
+            select(KlCoverage.scope_key, Work.title, Work.he_title)
             .join(Work, Work.id == KlCoverage.work_id)
             .join(KlSource, KlSource.work_id == KlCoverage.work_id)
             .where(
@@ -980,13 +996,14 @@ class KnowledgeTools:
             )
             .order_by(Work.title)
         ).all()
-        out = [
-            title
-            for key, title in rows
-            if key in scope_keys or any(key_covers_ref(key, r) for r in refs)
-        ]
-        out += self._known_gaps(refs)
-        return list(dict.fromkeys(out))
+        hit = [r for r in rows if r[0] in scope_keys or any(key_covers_ref(r[0], x) for x in refs)]
+        display = {title: (he or title) for _, title, he in hit}
+        titles = [title for _, title, _ in hit]
+        for work in self._known_gaps(refs):
+            titles.append(work)
+            display.setdefault(work, work)
+        titles = list(dict.fromkeys(titles))
+        return titles, {t: display[t] for t in titles}
 
     def _gate(self, text: str) -> ScopeGate:
         rules = self.cfg.scope
@@ -996,7 +1013,7 @@ class KnowledgeTools:
             "out_of_scope",
             refs=refs,
             issues=[{"key": i["key"], "scope_key": i["scope_key"]} for i in issues],
-            practical=is_practical(text),
+            practical=is_practical(text, self.phrases.practical),
         )
         gate.refs_in_scope = [r for r in refs if ref_in_scope(r, rules)]
         gate.refs_out_of_scope = [r for r in refs if r not in gate.refs_in_scope]
@@ -1013,7 +1030,9 @@ class KnowledgeTools:
             gate.reasons.append("אין בשאלה מקור בתחום הפיילוט, ולא נמצא נידון בתחום")
             return gate
         keys = [i["scope_key"] for i in issues_in]
-        gate.unchecked_core_books = self._unchecked_core(gate.refs_in_scope, keys)
+        gate.unchecked_core_books, gate.unchecked_display = self._unchecked_core(
+            gate.refs_in_scope, keys
+        )
         if gate.unchecked_core_books and gate.status == "in_scope":
             gate.status = "partial"
             gate.reasons.append("ספרי core שלא נבדקו")

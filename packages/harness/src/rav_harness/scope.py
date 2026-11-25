@@ -120,6 +120,8 @@ class ScopeGate:
     unchecked_core_books: list[str] = field(default_factory=list)
     reasons: list[str] = field(default_factory=list)
     practical: bool = False
+    # work title -> name shown in the answer text (he_title when there is one)
+    unchecked_display: dict[str, str] = field(default_factory=dict)
 
     def as_dict(self) -> dict:
         return {
@@ -129,18 +131,15 @@ class ScopeGate:
             "refs_out_of_scope": self.refs_out_of_scope,
             "issues": self.issues,
             "unchecked_core_books": self.unchecked_core_books,
+            "unchecked_display": self.unchecked_display,
             "reasons": self.reasons,
             "practical": self.practical,
         }
 
 
-_PRACTICAL_RE = re.compile(
-    r"מותר|אסור|חייב|פטור|צריך|למעשה|לכתחילה|בדיעבד|מה הדין|מה דין|האם (?:אפשר|ניתן)|כיצד נוהגים"
-)
-
-
-def is_practical(question: str) -> bool:
-    return bool(_PRACTICAL_RE.search(question))
+def is_practical(question: str, pattern: re.Pattern) -> bool:
+    """Practical (halakha lemaase) question: ``[knowledge.phrases] practical_regex``."""
+    return bool(pattern.search(question))
 
 
 def key_covers_ref(scope_key: str, ref: str) -> bool:
