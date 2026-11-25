@@ -14,8 +14,8 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column("unresolved_links", sa.Column("book_a", sa.String(256), nullable=True))
-    op.add_column("unresolved_links", sa.Column("book_b", sa.String(256), nullable=True))
+    op.add_column("unresolved_links", sa.Column("book_a", sa.String(512), nullable=True))
+    op.add_column("unresolved_links", sa.Column("book_b", sa.String(512), nullable=True))
     op.create_index("ix_unresolved_links_book_a", "unresolved_links", ["book_a"])
     op.create_index("ix_unresolved_links_book_b", "unresolved_links", ["book_b"])
 

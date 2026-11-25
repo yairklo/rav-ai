@@ -217,3 +217,45 @@ def test_bavli_primary_is_wikisource_and_gaps_reported(
             ).scalar()
             == 1
         )
+
+
+def test_unresolved_book_columns_hold_long_titles(engine):
+    long_title = "Commentary on " + "x" * 400  # > 256, within real-export max (307) headroom
+    with engine.begin() as c:
+        sid = c.execute(
+            text(
+                "INSERT INTO snapshots (source, export_label, status, taken_at) "
+                "VALUES ('sefaria', 't', 'running', now()) RETURNING id"
+            )
+        ).scalar_one()
+        c.execute(
+            text(
+                "INSERT INTO unresolved_links (snapshot_id, citation_a, citation_b, edge_type,"
+                " reason, side, book_a, book_b) VALUES (:s, 'a', 'b', '', 'ref_not_found',"
+                " 'both', :t, :t)"
+            ),
+            {"s": sid, "t": long_title},
+        )
+        got = c.execute(text("SELECT book_a, book_b FROM unresolved_links")).one()
+    assert got == (long_title, long_title)
+
+
+def test_migrations_downgrade_upgrade_roundtrip(engine):
+    from alembic import command
+    from alembic.config import Config
+
+    from rav_ai.config import ROOT
+
+    cfg = Config(str(ROOT / "alembic.ini"))
+    cfg.set_main_option("script_location", str(ROOT / "alembic"))
+    cfg.set_main_option("sqlalchemy.url", engine.url.render_as_string(hide_password=False))
+    command.downgrade(cfg, "-1")
+    command.upgrade(cfg, "head")
+    with engine.connect() as c:
+        n = c.execute(
+            text(
+                "SELECT character_maximum_length FROM information_schema.columns "
+                "WHERE table_name='unresolved_links' AND column_name='book_a'"
+            )
+        ).scalar()
+    assert n == 512
