@@ -2,7 +2,7 @@
 name = "rav-harness"
 version = "0.1.0"
 description = "Thin agent loop (LiteLLM + deterministic corpus tools) that answers halakhic questions with a typed, verifiable Answer."
-requires-python = ">=3.12,<3.13"
+requires-python = ">=3.12"
 dependencies = [
     "litellm>=1.50",
     "pydantic>=2.6",
