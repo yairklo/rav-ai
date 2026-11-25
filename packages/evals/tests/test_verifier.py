@@ -97,7 +97,8 @@ def test_is_psak_true_rejected_by_schema():
 def test_v4_stub_skips_and_custom_checker_can_fail():
     a = ans(quote(attribution='המ"ב בשם המג"א'))
     r = verify_answer(a, ["A 1"], STORE)
-    assert r.passed and len(r.skipped) == 1 and r.skipped[0].startswith("V4")
+    v4 = [x for x in r.skipped if x.startswith("V4")]
+    assert r.passed and len(v4) == 1
 
     class Bad:
         def check(self, citation, source_text):

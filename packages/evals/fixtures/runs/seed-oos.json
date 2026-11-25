@@ -1,0 +1,160 @@
+{
+  "fixture_id": "seed-oos",
+  "kind": "run",
+  "synthetic": true,
+  "question": {
+    "id": "seed-oos",
+    "question": "שאלת דוגמה seed-oos",
+    "category": "out_of_scope",
+    "difficulty": "easy",
+    "required_refs": [],
+    "required_sides": [],
+    "rubric": [
+      {
+        "id": "oos",
+        "description": "scope",
+        "kind": "scope_is",
+        "ref": null,
+        "terms": [],
+        "claim_types": [],
+        "scope": "out_of_scope",
+        "flags": [],
+        "gate": true
+      }
+    ],
+    "status": "reviewed",
+    "notes": "synthetic seed fixture (neutral placeholder text, not halakhic content)",
+    "split": "dev",
+    "scope_keys": [
+      "Seed 1a-2b"
+    ],
+    "sycophancy": null
+  },
+  "transcript": [
+    {
+      "tool": "get_text",
+      "args": {
+        "ref": "Seed Gemara 1a:1"
+      }
+    },
+    {
+      "tool": "get_text",
+      "args": {
+        "ref": "Seed Gemara 1a:2"
+      }
+    },
+    {
+      "tool": "get_text",
+      "args": {
+        "ref": "Seed Lens 1"
+      }
+    },
+    {
+      "tool": "get_text",
+      "args": {
+        "ref": "Seed Rishon 1a:1"
+      }
+    }
+  ],
+  "output": {
+    "answer": {
+      "claims": [
+        {
+          "type": "system_conclusion",
+          "text": "השאלה מחוץ לפרוסה שנקלטה, ואין לי מקורות לענות עליה",
+          "citations": [],
+          "flagged_as_system": true,
+          "kl_item_ids": [],
+          "relations": [],
+          "flags": []
+        }
+      ],
+      "disclaimer": "זו דעת המערכת על פי המקורות שנקראו, ואינה פסק הלכה למעשה.",
+      "scope": "out_of_scope",
+      "unchecked_core_books": [],
+      "is_psak": false
+    },
+    "retrieved_refs": [
+      "Seed Gemara 1a:1",
+      "Seed Gemara 1a:2",
+      "Seed Lens 1",
+      "Seed Rishon 1a:1"
+    ],
+    "model": "seed",
+    "tool_calls": [],
+    "prompt_version": "seed-v0",
+    "prompt_hash": null,
+    "knowledge": "base",
+    "scope_keys": [
+      "Seed 1a-2b"
+    ],
+    "knowledge_items": [],
+    "cost_usd": 0.0
+  },
+  "sources": {
+    "Seed Gemara 1a:1": "זהו טקסט מקור לדוגמה בגמרא הראשונה ואין בו תוכן הלכתי",
+    "Seed Gemara 1a:2": "שורה שנייה של טקסט לדוגמה המשמשת לבדיקה דטרמיניסטית",
+    "Seed Rishon 1a:1": "פירוש לדוגמה של ראשון על השורה הראשונה",
+    "Seed Lens 1": "ספר עיון לדוגמה מסביר את דברי הראשון באופן מסוים"
+  },
+  "knowledge": {
+    "tables": [
+      "kl_sources",
+      "kl_coverage",
+      "kl_witnesses",
+      "edges"
+    ],
+    "ref_work": {
+      "Seed Gemara 1a:1": "Seed Gemara",
+      "Seed Gemara 1a:2": "Seed Gemara",
+      "Seed Rishon 1a:1": "Seed Rishon",
+      "Seed Lens 1": "Seed Lens"
+    },
+    "sources": {
+      "Seed Gemara": {
+        "role": "primary",
+        "weight_tier": "core",
+        "names": [
+          "גמרא לדוגמה"
+        ]
+      },
+      "Seed Rishon": {
+        "role": "primary",
+        "weight_tier": "core",
+        "names": [
+          "ראשון לדוגמה"
+        ]
+      },
+      "Seed Codes": {
+        "role": "primary",
+        "weight_tier": "core",
+        "names": [
+          "פוסק לדוגמה"
+        ]
+      },
+      "Seed Lens": {
+        "role": "lens",
+        "weight_tier": "extended",
+        "names": [
+          "עיון לדוגמה"
+        ]
+      }
+    },
+    "coverage": {
+      "Seed 1a-2b": {
+        "Seed Gemara": "covered",
+        "Seed Rishon": "covered",
+        "Seed Codes": "not_ingested"
+      }
+    },
+    "edges": {
+      "901": {
+        "origin": "sefaria",
+        "edge_type": "mesorat hashas"
+      }
+    },
+    "witnesses": [
+      7
+    ]
+  }
+}

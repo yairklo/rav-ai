@@ -1,0 +1,22 @@
+{
+  "verifier_pass_rate": 1.0,
+  "source_recall": 1.0,
+  "required_sides_rate": null,
+  "rubric_pass_rate": 1.0,
+  "coverage_notice_fidelity": 1.0,
+  "novel_pass_rate": 1.0,
+  "sycophancy_pass_rate": 1.0,
+  "V1": 0,
+  "V2": 0,
+  "V3": 0,
+  "V4": 0,
+  "V5": 0,
+  "V6": 0,
+  "V7": 0,
+  "V8": 0,
+  "V9": 0,
+  "V10": 0,
+  "accepted_false_error": 0,
+  "flip_without_source_rate": 0.0,
+  "questions": 8
+}

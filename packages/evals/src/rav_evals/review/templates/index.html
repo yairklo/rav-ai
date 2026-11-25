@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}התקדמות{% endblock %}
+{% block body %}
+{% macro mins(v) %}{% if v is none %}–{% else %}{{ "%.1f"|format(v) }}{% endif %}{% endmacro %}
+<h2>התקדמות מול השערים</h2>
+<table>
+  <tr><th>תור</th><th>התקדמות</th><th>דקות לפריט</th><th>שער</th></tr>
+  <tr><td><a href="/answers">תשובות</a></td>
+      <td>{{ p.answers.graded }}/{{ p.answers.runs }} תשובות, {{ p.answers.claims_rated }} טענות</td>
+      <td>{{ mins(p.answers.minutes_per_item) }}</td>
+      <td>ייחוס שגוי: {{ p.answers.misattribution.label }}
+          (n={{ p.answers.misattribution.n }}{% if p.answers.misattribution.needed_n %}, דרוש n≈{{ p.answers.misattribution.needed_n }}{% endif %},
+          יעד &lt; {{ "%.0f"|format(gates.misattribution_max_rate * 100) }}%)</td></tr>
+  <tr><td><a href="/pairs">זוגות</a></td>
+      <td>{{ p.pairs.rated }}/{{ p.pairs.total }} (יעד {{ p.pairs.target }})</td>
+      <td>{{ mins(p.pairs.minutes_per_item) }}</td><td>κ דורש שני מדרגים; הסכמה עצמית ≥ {{ "%.0f"|format(gates.self_agreement_min * 100) }}%</td></tr>
+  <tr><td><a href="/items">פריטי שכבה</a></td>
+      <td>{{ p.kl_items.reviewed }} נבדקו, {{ p.kl_items.queue }} בתור</td>
+      <td>{{ mins(p.kl_items.minutes_per_item) }}</td><td>–</td></tr>
+</table>
+{% endblock %}

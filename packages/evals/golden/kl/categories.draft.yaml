@@ -1,0 +1,354 @@
+# DRAFT - requires human review. Refs and sides are TODO placeholders: they are NOT filled in
+# from a model's memory. heldout questions are never used to tune prompts (run with --split heldout).
+version: 0.0.1-draft
+status: draft
+description: 'KL-3 categories on Shabbat 21a-24a (DRAFT): novel, sugya_flow, dispute_chain, tzdadim, girsa_dependent,
+  psak_not_accepted, out_of_scope, snif. Every ref / side is a TODO for a human.'
+questions:
+- id: novel-001
+  question: האם יוצאים ידי חובת נר חנוכה בנר חשמלי?
+  category: novel
+  difficulty: hard
+  split: dev
+  scope_keys:
+  - Shabbat 21a-24a
+  required_refs:
+  - 'TODO: ref קנוני 1'
+  - 'TODO: ref קנוני 2'
+  required_sides:
+  - label: 'TODO: צד 1'
+    terms: []
+  - label: 'TODO: צד 2'
+    terms: []
+  rubric:
+  - &id001
+    id: verifier-clean
+    description: כל הציטוטים וה-V5-V10 עוברים
+    kind: verifier_passes
+  - &id002
+    id: novel-protocol
+    description: מסומן system_conclusion/chidush, יסוד מהמקורות שנקראו, צדדים, מסויג; לא מציג חידוש כמקור
+    kind: novel_protocol
+  notes: 'TODO(human): יסודות ומקורות; לא למלא צדדים מהזיכרון.'
+  status: draft
+- id: novel-002
+  question: 'אורח שמתאכסן במלון: היכן ואיך ידליק נר חנוכה?'
+  category: novel
+  difficulty: hard
+  split: dev
+  scope_keys:
+  - Shabbat 21a-24a
+  required_refs:
+  - 'TODO: ref קנוני 1'
+  - 'TODO: ref קנוני 2'
+  required_sides:
+  - label: 'TODO: צד 1'
+    terms: []
+  - label: 'TODO: צד 2'
+    terms: []
+  rubric:
+  - *id001
+  - *id002
+  notes: TODO(human)
+  status: draft
+- id: novel-003
+  question: 'מי שאין לו פתח הפתוח לרשות הרבים: היכן ידליק?'
+  category: novel
+  difficulty: medium
+  split: heldout
+  scope_keys:
+  - Shabbat 21a-24a
+  required_refs:
+  - 'TODO: ref קנוני 1'
+  - 'TODO: ref קנוני 2'
+  required_sides:
+  - label: 'TODO: צד 1'
+    terms: []
+  - label: 'TODO: צד 2'
+    terms: []
+  rubric:
+  - *id001
+  - *id002
+  notes: TODO(human)
+  status: draft
+- id: flow-001
+  question: 'TODO: שאלה על מהלך הסוגיה (קושיא ותירוץ) בפרוסה'
+  category: sugya_flow
+  difficulty: medium
+  split: dev
+  scope_keys:
+  - Shabbat 21a-24a
+  required_refs:
+  - 'TODO: ref קנוני 1'
+  required_sides: []
+  rubric:
+  - *id001
+  - id: flow-order
+    description: מציג את שלבי הסוגיה בסדרם
+    kind: llm
+  notes: TODO(human)
+  status: draft
+- id: flow-002
+  question: 'TODO: מה ההוה אמינא ומה המסקנה ב-TODO: מקום'
+  category: sugya_flow
+  difficulty: hard
+  split: heldout
+  scope_keys:
+  - Shabbat 21a-24a
+  required_refs:
+  - 'TODO: ref קנוני 1'
+  required_sides: []
+  rubric:
+  - *id001
+  - id: hava-amina
+    description: מבחין בין הוה אמינא למסקנה
+    kind: llm
+  notes: TODO(human)
+  status: draft
+- id: chain-001
+  question: 'TODO: מחלוקת בגמרא ואיך נפסקה בראשונים ובפוסקים'
+  category: dispute_chain
+  difficulty: hard
+  split: dev
+  scope_keys:
+  - Shabbat 21a-24a
+  required_refs:
+  - 'TODO: ref קנוני 1'
+  - 'TODO: ref קנוני 2'
+  - 'TODO: ref קנוני 3'
+  required_sides:
+  - label: 'TODO: צד 1'
+    terms: []
+  - label: 'TODO: צד 2'
+    terms: []
+  rubric:
+  - *id001
+  - id: chain
+    description: שרשרת גמרא -> ראשונים -> פוסקים, כל שלב מיוחס לבעליו
+    kind: llm
+  notes: TODO(human)
+  status: draft
+- id: chain-002
+  question: 'TODO: שיטות הראשונים בדין X בפרוסה'
+  category: dispute_chain
+  difficulty: hard
+  split: heldout
+  scope_keys:
+  - Shabbat 21a-24a
+  required_refs:
+  - 'TODO: ref קנוני 1'
+  - 'TODO: ref קנוני 2'
+  - 'TODO: ref קנוני 3'
+  required_sides:
+  - label: 'TODO: צד 1'
+    terms: []
+  - label: 'TODO: צד 2'
+    terms: []
+  rubric:
+  - *id001
+  - id: chain
+    description: כל שיטה מיוחסת לבעליה
+    kind: llm
+  notes: TODO(human)
+  status: draft
+- id: tzdadim-001
+  question: 'TODO: חקירה (למשל הדלקה עושה מצוה או הנחה) - מה הצדדים ומה נפקא מינה?'
+  category: tzdadim
+  difficulty: hard
+  split: dev
+  scope_keys:
+  - Shabbat 21a-24a
+  required_refs:
+  - 'TODO: ref קנוני 1'
+  - 'TODO: ref קנוני 2'
+  required_sides:
+  - label: 'TODO: צד 1'
+    terms: []
+  - label: 'TODO: צד 2'
+    terms: []
+  rubric:
+  - *id001
+  - id: sides
+    description: מציג את שני הצדדים ומי הציע כל אחד
+    kind: llm
+  notes: 'TODO(human): מי הציע את החקירה, ממקור מעוגן.'
+  status: draft
+- id: tzdadim-002
+  question: 'TODO: חקירה שנייה בפרוסה'
+  category: tzdadim
+  difficulty: hard
+  split: heldout
+  scope_keys:
+  - Shabbat 21a-24a
+  required_refs:
+  - 'TODO: ref קנוני 1'
+  - 'TODO: ref קנוני 2'
+  required_sides:
+  - label: 'TODO: צד 1'
+    terms: []
+  - label: 'TODO: צד 2'
+    terms: []
+  rubric:
+  - *id001
+  - id: sides
+    description: מציג צדדים ומקורותיהם
+    kind: llm
+  notes: TODO(human)
+  status: draft
+- id: girsa-001
+  question: 'TODO: דין שתלוי בגרסה בפרוסה - מה הגרסאות ומה מקורן?'
+  category: girsa_dependent
+  difficulty: hard
+  split: dev
+  scope_keys:
+  - Shabbat 21a-24a
+  required_refs:
+  - 'TODO: ref קנוני 1'
+  - 'TODO: ref קנוני 2'
+  required_sides: []
+  rubric:
+  - *id001
+  - id: witness
+    description: כל גרסה מיוחסת לעד נוסח או למקור שמדווח עליה
+    kind: llm
+  notes: 'TODO(human): עדי נוסח מ-kl_witnesses בלבד.'
+  status: draft
+- id: girsa-002
+  question: 'TODO: שינוי נוסח שני'
+  category: girsa_dependent
+  difficulty: hard
+  split: heldout
+  scope_keys:
+  - Shabbat 21a-24a
+  required_refs:
+  - 'TODO: ref קנוני 1'
+  - 'TODO: ref קנוני 2'
+  required_sides: []
+  rubric:
+  - *id001
+  - id: witness
+    description: לא טוען לטעות בקול המערכת
+    kind: llm
+  notes: TODO(human)
+  status: draft
+- id: notacc-001
+  question: 'TODO: פסק שלא נתקבל להלכה - מה הוא ומי כתב שלא נתקבל?'
+  category: psak_not_accepted
+  difficulty: hard
+  split: dev
+  scope_keys:
+  - Shabbat 21a-24a
+  required_refs:
+  - 'TODO: ref קנוני 1'
+  - 'TODO: ref קנוני 2'
+  required_sides: []
+  rubric:
+  - *id001
+  - id: not-accepted
+    description: מייחס את 'לא נתקבל' למקור שכתב זאת
+    kind: llm
+  notes: TODO(human)
+  status: draft
+- id: notacc-002
+  question: 'TODO: פסק שני שלא נתקבל'
+  category: psak_not_accepted
+  difficulty: hard
+  split: heldout
+  scope_keys:
+  - Shabbat 21a-24a
+  required_refs:
+  - 'TODO: ref קנוני 1'
+  - 'TODO: ref קנוני 2'
+  required_sides: []
+  rubric:
+  - *id001
+  - id: not-accepted
+    description: מתעד את הקבלה במקור
+    kind: llm
+  notes: TODO(human)
+  status: draft
+- id: oos-001
+  question: 'TODO: שאלה בתחום אחר לגמרי (מחוץ לפרוסה)'
+  category: out_of_scope
+  difficulty: easy
+  split: dev
+  scope_keys:
+  - Shabbat 21a-24a
+  required_refs: []
+  required_sides: []
+  rubric:
+  - *id001
+  - &id003
+    id: scope-out
+    description: Answer.scope = out_of_scope
+    kind: scope_is
+    scope: out_of_scope
+  notes: 'TODO(human): לבחור נושא שבוודאות מחוץ לפרוסה.'
+  status: draft
+- id: oos-002
+  question: 'TODO: שאלה בהלכות חנוכה שאינה בפרוסה (סימן שלא נקלט)'
+  category: out_of_scope
+  difficulty: medium
+  split: heldout
+  scope_keys:
+  - Shabbat 21a-24a
+  required_refs: []
+  required_sides: []
+  rubric:
+  - *id001
+  - *id003
+  notes: TODO(human)
+  status: draft
+- id: snif-001
+  question: 'TODO: מקרה שבו פוסק מצרף שיטה שנדחתה כסניף'
+  category: snif
+  difficulty: hard
+  split: dev
+  scope_keys:
+  - Shabbat 21a-24a
+  required_refs:
+  - 'TODO: ref קנוני 1'
+  - 'TODO: ref קנוני 2'
+  required_sides: []
+  rubric:
+  - *id001
+  - &id004
+    id: snif-kept
+    description: הסניף מוצג (טענה מסומנת snif) ולא סונן
+    kind: has_flag
+    flags:
+    - snif
+  notes: 'TODO(human): מתוך סט הסניף (10-20) שיאיר אוסף.'
+  status: draft
+- id: snif-002
+  question: 'TODO: מקרה שבו פוסק מצרף גרסה שנדחתה כסניף'
+  category: snif
+  difficulty: hard
+  split: dev
+  scope_keys:
+  - Shabbat 21a-24a
+  required_refs:
+  - 'TODO: ref קנוני 1'
+  - 'TODO: ref קנוני 2'
+  required_sides: []
+  rubric:
+  - *id001
+  - *id004
+  notes: TODO(human)
+  status: draft
+- id: snif-003
+  question: 'TODO: מקרה סניף שלישי'
+  category: snif
+  difficulty: hard
+  split: heldout
+  scope_keys:
+  - Shabbat 21a-24a
+  required_refs:
+  - 'TODO: ref קנוני 1'
+  - 'TODO: ref קנוני 2'
+  required_sides: []
+  rubric:
+  - *id001
+  - *id004
+  notes: TODO(human)
+  status: draft
