@@ -486,3 +486,78 @@ def test_fix2_position_new_fields_need_evidence_and_versions_are_bumped():
     assert ok.leniency_reason.evidence[0].role == "states"
     assert schema_version_for("position") == 2 and schema_version_for("issue") == 1
     assert Position.model_validate(pos(evidence=ev).model_dump())  # round trip
+
+
+# ---- fix-3 -------------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("flags", [True, False])
+def test_fix3_1_other_sugya_in_the_overlap_page_does_not_merge_with_the_carry(world, flags):
+    """A=0-3, X=4-4, B=5-9 where the overlap page (idx 4,5) holds X and the start of B."""
+
+    def r(messages, tool, model):
+        if tool != "sugya":
+            return None
+        if "Shabbat 21a:1" in messages[-1]["content"]:
+            return {"sugyot": [
+                {"title_he": "A", "start_seg": "S1", "end_seg": "S4"},
+                {"title_he": "X", "start_seg": "S5", "end_seg": "S5"},
+                {"title_he": "B", "start_seg": "S6", "end_seg": "S6",
+                 **({"open_end": True} if flags else {})},
+            ]}  # fmt: skip
+        return {"sugyot": [
+            {"title_he": "X", "start_seg": "S1", "end_seg": "S1",
+             **({"open_start": True} if flags else {})},
+            {"title_he": "B2", "start_seg": "S2", "end_seg": "S6"},
+        ]}  # fmt: skip
+
+    run(world.engine, "s0", None)
+    rep = run(world.engine, "s1", ScriptedLLM(r))
+    assert "coverage_holes" not in rep.stats and "coverage_overlaps" not in rep.stats
+    with Session(world.engine) as s:
+        got = list(s.scalars(select(KlItem).where(KlItem.kind == "sugya").order_by(KlItem.id)))
+        assert [(i.item_key, i.body["end_ref"], i.is_current) for i in got] == [
+            ("sugya:Shabbat 21a:1", "Shabbat 21b:2", True),
+            ("sugya:Shabbat 22a:1", "Shabbat 22a:1", True),
+            ("sugya:Shabbat 22a:2", "Shabbat 23a:2", True),
+        ]
+        assert all(i.check_report is None for i in got)
+
+
+def test_fix3_2_table_comments_do_not_drift(pg_engine):
+    from alembic.autogenerate import compare_metadata
+    from alembic.migration import MigrationContext
+    from rav_ai.db.models import Base
+
+    with pg_engine.connect() as c:
+        diffs = compare_metadata(MigrationContext.configure(c), Base.metadata)
+    flat = [d for x in diffs for d in (x if isinstance(x, list) else [x])]
+    assert not [d for d in flat if "table_comment" in d[0]]
+
+
+def test_fix3_3_license_tier_has_no_model_default():
+    assert KlSource.__table__.c.license_tier.default is None
+
+
+def test_fix3_4_copy_evidence_uses_the_config_thresholds(world):
+    from rav_ai.db.models import KlEvidence, Segment, SegmentText
+
+    from rav_knowledge.store import copy_evidence
+
+    with Session(world.engine) as s:
+        sid = world.seg["Shabbat 21a:1"]
+        st = s.scalars(select(SegmentText).where(SegmentText.segment_id == sid)).first()
+        it, new = _item(s, "issue", "ev1", {}), _item(s, "issue", "ev2", {})
+        quote = "ושמואל אמר פטור"
+        s.add(KlEvidence(item_id=it.id, segment_id=sid, version_id=st.version_id, quote=quote,
+                         role="states", locate_status="located"))  # fmt: skip
+        s.flush()
+        copy_evidence(s, it.id, new.id)
+        assert (
+            s.scalars(select(KlEvidence).where(KlEvidence.item_id == new.id)).one().locate_status
+            == "located"
+        )
+        copy_evidence(s, it.id, new.id, min_words=4)  # stricter config: 3 words is now too short
+        rows = list(s.scalars(select(KlEvidence).where(KlEvidence.item_id == new.id)))
+        assert [r.locate_status for r in rows] == ["located", "ambiguous"]
+        _ = Segment

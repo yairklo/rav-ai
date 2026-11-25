@@ -82,6 +82,7 @@ def _human_version(
     start_id: int | None = None,
     end_id: int | None = None,
     segment_ids: list[int] | None = None,
+    cfg: KLConfig | None = None,
 ) -> tuple[KlItem, bool]:
     """A human decision never edits an item: it is a NEW version of the same item_key (verified,
     no model, prompt_version='human'), made current; the previous one is kept, not current.
@@ -142,13 +143,17 @@ def _human_version(
                 for i, sid in enumerate(segment_ids)
             ],
         )
-        copy_evidence(s, it.id, new.id)
+        c = cfg or load_config()
+        copy_evidence(s, it.id, new.id, min_words=c.quote_min_words, min_chars=c.quote_min_chars)
         s.flush()
     return new, existed is None
 
 
 def apply_overrides(
-    s: Session, item_ids: list[int], annotation_ids: list[int] | None = None
+    s: Session,
+    item_ids: list[int],
+    annotation_ids: list[int] | None = None,
+    cfg: KLConfig | None = None,
 ) -> int:
     """Human decisions win over what a task just produced. Returns the number of conflicts: a
     decision that the NEW output disagrees with (an output equal to the decision is no conflict;
@@ -166,7 +171,7 @@ def apply_overrides(
         elif o.action == "edit" and isinstance(o.corrected, dict):
             if all(it.body.get(k) == v for k, v in o.corrected.items()):
                 continue  # the output already says what the human decided
-            _, created = _human_version(s, it, o, body={**it.body, **o.corrected})
+            _, created = _human_version(s, it, o, body={**it.body, **o.corrected}, cfg=cfg)
             conflicts += created
         elif o.action == "approve":
             if (o.corrected or {}).get("input_hash") == it.input_hash:
@@ -174,7 +179,7 @@ def apply_overrides(
             else:
                 conflicts += 1
         elif o.action == "set_boundary" and isinstance(o.corrected, dict):
-            conflicts += _set_boundary(s, it, o)
+            conflicts += _set_boundary(s, it, o, cfg)
     for aid in annotation_ids or []:
         a = s.get(Annotation, aid)
         if a is None:
@@ -188,7 +193,7 @@ def apply_overrides(
     return conflicts
 
 
-def _set_boundary(s: Session, it: KlItem, o: KlOverride) -> int:
+def _set_boundary(s: Session, it: KlItem, o: KlOverride, cfg: KLConfig | None = None) -> int:
     """corrected = {"start_ref": ..., "end_ref": ...} (either optional). Returns 1 on a new
     human version, 0 when the output already has these boundaries."""
     corr = o.corrected
@@ -217,6 +222,7 @@ def _set_boundary(s: Session, it: KlItem, o: KlOverride) -> int:
         start_id=start.id,
         end_id=end.id,
         segment_ids=ids,
+        cfg=cfg,
     )
     return int(created)
 
@@ -368,7 +374,7 @@ def run_stage(
         try:
             with Session(engine) as s:
                 out = st.execute(rc, s, sp)
-                conflicts = apply_overrides(s, out.item_ids, out.annotation_ids)
+                conflicts = apply_overrides(s, out.item_ids, out.annotation_ids, cfg)
                 t = s.scalars(
                     select(KlTask).where(KlTask.job_id == job_id, KlTask.task_key == sp.key)
                 ).one()

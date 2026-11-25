@@ -283,6 +283,7 @@ class Card(Base):
     """
 
     __tablename__ = "cards"
+    __table_args__ = ({"comment": "DEPRECATED: superseded by kl_items"},)
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     segment_id: Mapped[int] = mapped_column(ForeignKey("segments.id"), index=True)
@@ -299,6 +300,7 @@ class CardDependency(Base):
     """DEPRECATED (see ``Card``). `card_id` rests on `depends_on_card_id` (stale propagates)."""
 
     __tablename__ = "card_dependencies"
+    __table_args__ = ({"comment": "DEPRECATED: superseded by kl_items"},)
 
     card_id: Mapped[int] = mapped_column(ForeignKey("cards.id"), primary_key=True)
     depends_on_card_id: Mapped[int] = mapped_column(ForeignKey("cards.id"), primary_key=True)
@@ -692,7 +694,7 @@ class KlSource(Base):
     tier: Mapped[str] = mapped_column(String(24))
     role: Mapped[str] = mapped_column(String(16))
     origin: Mapped[str | None] = mapped_column(String(64))
-    license_tier: Mapped[str] = mapped_column(String(32), default="PUBLIC_COMMERCIAL")
+    license_tier: Mapped[str] = mapped_column(String(32))  # fail-closed: no default
     license_basis: Mapped[str | None] = mapped_column(Text)
     weight_tier: Mapped[str | None] = mapped_column(String(12))
     # closed list validated in pydantic (rav_knowledge.sources.AUTHORITY_AREAS), NULL = not

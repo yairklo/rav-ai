@@ -613,10 +613,15 @@ def merge_windows(results: list[dict]) -> tuple[list[dict], list[int]]:
     for r in results:
         for sg in sorted(r["sugyot"], key=lambda x: x["start_idx"]):
             sg = dict(sg)
-            if carry is not None and sg["open_start"] and sg["start_idx"] <= carry["end_idx"] + 1:
-                if sg["end_idx"] > carry["end_idx"]:
-                    for k in ("end_id", "end_ref", "end_idx"):
-                        carry[k] = sg[k]
+            seen_to = max(covered_to, carry["end_idx"] if carry else -1)
+            if sg["end_idx"] <= seen_to:
+                continue  # seen again in the overlap; it must not close the carried sugya
+            if carry is not None and (
+                sg["start_idx"] <= carry["end_idx"]
+                or (sg["open_start"] and sg["start_idx"] == carry["end_idx"] + 1)
+            ):  # the continuation covers the tail of the carry
+                for k in ("end_id", "end_ref", "end_idx"):
+                    carry[k] = sg[k]
                 carry["open_end"] = sg["open_end"]
                 if not carry["open_end"]:
                     finalize(carry)
@@ -626,7 +631,7 @@ def merge_windows(results: list[dict]) -> tuple[list[dict], list[int]]:
                 finalize(carry)
                 carry = None
             if sg["end_idx"] <= covered_to:
-                continue  # already accepted whole: seen again in the overlap
+                continue
             if sg["open_end"]:
                 carry = sg
             else:

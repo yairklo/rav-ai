@@ -332,7 +332,9 @@ def add_segments(s: Session, item: KlItem, rows: list[tuple[int, str]]) -> None:
         s.merge(KlItemSegment(item_id=item.id, segment_id=sid, role=role, ord=i))
 
 
-def copy_evidence(s: Session, src_item_id: int, dst_item_id: int) -> int:
+def copy_evidence(
+    s: Session, src_item_id: int, dst_item_id: int, *, min_words: int = 2, min_chars: int = 6
+) -> int:
     """Copy the evidence rows of one item version to another and locate every quote again
     against the current text (status / spans refreshed; a quote that is gone stays not_found)."""
     n = 0
@@ -361,6 +363,8 @@ def copy_evidence(s: Session, src_item_id: int, dst_item_id: int) -> int:
                     st.text_b,
                     st.offsets_b,
                 ),
+                min_words=min_words,
+                min_chars=min_chars,
             )
             row.update(
                 span_start=loc.span_start,
