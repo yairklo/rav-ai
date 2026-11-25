@@ -561,3 +561,43 @@ def test_fix3_4_copy_evidence_uses_the_config_thresholds(world):
         rows = list(s.scalars(select(KlEvidence).where(KlEvidence.item_id == new.id)))
         assert [r.locate_status for r in rows] == ["located", "ambiguous"]
         _ = Segment
+
+
+# ---- fix-4 -------------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("flags", [True, False])
+def test_fix4_windows_disagree_on_the_end_of_the_carry(world, flags):
+    """w0=0-5: A=0-3, B=4-5 (open_end). w1=4-9: B=4-4 (open_start), Y=5-9."""
+
+    def r(messages, tool, model):
+        if tool != "sugya":
+            return None
+        if "Shabbat 21a:1" in messages[-1]["content"]:
+            return {"sugyot": [
+                {"title_he": "A", "start_seg": "S1", "end_seg": "S4"},
+                {"title_he": "B", "start_seg": "S5", "end_seg": "S6",
+                 **({"open_end": True} if flags else {})},
+            ]}  # fmt: skip
+        return {"sugyot": [
+            {"title_he": "B", "start_seg": "S1", "end_seg": "S1",
+             **({"open_start": True} if flags else {})},
+            {"title_he": "Y", "start_seg": "S2", "end_seg": "S6"},
+        ]}  # fmt: skip
+
+    run(world.engine, "s0", None)
+    rep = run(world.engine, "s1", ScriptedLLM(r))
+    assert "coverage_holes" not in rep.stats and "coverage_overlaps" not in rep.stats
+    with Session(world.engine) as s:
+        got = list(s.scalars(select(KlItem).where(KlItem.kind == "sugya").order_by(KlItem.id)))
+        assert [(i.item_key, i.body["end_ref"]) for i in got] == [
+            ("sugya:Shabbat 21a:1", "Shabbat 21b:2"),
+            ("sugya:Shabbat 22a:1", "Shabbat 22a:1"),
+            ("sugya:Shabbat 22a:2", "Shabbat 23a:2"),
+        ]
+        a, b, y = got
+        assert a.check_report is None and y.check_report is None
+        assert b.check_report["queue_priority"] is True and b.check_report["ok"] is True
+        f = b.check_report["findings"][0]
+        assert f["code"] == "K8" and f["level"] == "warn"
+        assert f["message"] == "boundary disagreement between windows"

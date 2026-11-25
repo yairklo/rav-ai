@@ -538,13 +538,25 @@ class S1:
         for j, sg in enumerate(spans):
             seg_ids = ids[sg["start_idx"] : sg["end_idx"] + 1]
             report = None
-            if j in findings:
+            if j in findings or sg.get("disagree"):
                 report = {
-                    "ok": False,
+                    "ok": j not in findings,
                     "findings": [
                         {"code": "K8", "message": m, "path": "", "level": "error"}
-                        for m in findings[j]
-                    ],
+                        for m in findings.get(j, [])
+                    ]
+                    + (
+                        [
+                            {
+                                "code": "K8",
+                                "message": "boundary disagreement between windows",
+                                "path": "",
+                                "level": "warn",
+                            }
+                        ]
+                        if sg.get("disagree")
+                        else []
+                    ),
                     "downgrades": [],
                     "queue_priority": True,
                 }
@@ -611,8 +623,24 @@ def merge_windows(results: list[dict]) -> tuple[list[dict], list[int]]:
         covered_to = max(covered_to, sg["end_idx"])
 
     for r in results:
+        first_idx = min(r.get("idx") or [0])
         for sg in sorted(r["sugyot"], key=lambda x: x["start_idx"]):
             sg = dict(sg)
+            if (
+                carry is not None
+                and sg["open_start"]
+                and carry["start_idx"] <= sg["end_idx"] < carry["end_idx"]
+                and sg["start_idx"] in (carry["start_idx"], first_idx)
+            ):
+                # the next window says the carried sugya ends here: shorten it, close it and let
+                # whatever starts after be a new sugya; the disagreement goes to the queue
+                for k in ("end_id", "end_ref", "end_idx"):
+                    carry[k] = sg[k]
+                carry["open_end"] = False
+                carry["disagree"] = True
+                finalize(carry)
+                carry = None
+                continue
             seen_to = max(covered_to, carry["end_idx"] if carry else -1)
             if sg["end_idx"] <= seen_to:
                 continue  # seen again in the overlap; it must not close the carried sugya
