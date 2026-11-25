@@ -24,6 +24,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -294,11 +295,18 @@ class Run(Base):
     prompt_hash: Mapped[str | None] = mapped_column(String(64), index=True)  # sha256 of the prompt
 
     # What happened
+    messages: Mapped[list[Any]] = mapped_column(
+        JsonType, default=list, server_default=text("'[]'")
+    )  # full transcript (harness runs)
     retrieved_sources: Mapped[list[Any]] = mapped_column(JsonType, default=list)  # refs (+scores)
     tool_calls: Mapped[list[Any]] = mapped_column(JsonType, default=list)
     answer: Mapped[dict[str, Any] | None] = mapped_column(JsonType)  # Answer.model_dump()
     error: Mapped[str | None] = mapped_column(Text)
     latency_ms: Mapped[int | None] = mapped_column(Integer)
+    steps: Mapped[int] = mapped_column(Integer, default=0, server_default="0")  # LLM calls
+    input_tokens: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    output_tokens: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    cost_usd: Mapped[float | None] = mapped_column(Float)  # None = pricing unknown
 
     # Verification
     verification: Mapped[dict[str, Any] | None] = mapped_column(JsonType)  # VerificationReport

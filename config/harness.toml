@@ -1,0 +1,7 @@
+# Harness defaults. Override the model per run with RAV_HARNESS_MODEL (any LiteLLM model id).
+[harness]
+model = "anthropic/claude-sonnet-5-5"
+temperature = 0.0
+max_tokens = 4096
+max_steps = 12            # LLM calls per question, including the final submit_answer
+max_answer_retries = 2    # rejected submit_answer attempts before the run fails
