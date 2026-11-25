@@ -38,11 +38,40 @@ def test_uncertain_ranges_stay_unresolved():
     assert idx.resolve("Tosafot on Bava Kamma 2a:1-62b:3") == []
     # single refs in a hole are not ranges: still unresolved
     assert idx.resolve("Tosafot on Bava Kamma 62b:6") == []
-    # Mishnah Chagigah 2:1-10 (real link): chapter 2 has 7 mishnayot, nothing is invented
-    mish = index("Mishnah Chagigah", [("2", str(i)) for i in range(1, 8)])
-    assert mish.resolve("Mishnah Chagigah 2:1-10") == []
     psalms = index("Psalms", [(str(c), str(v)) for c in (116, 117, 118) for v in (1, 2)])
     assert psalms.resolve("Psalms 117:7-8") == []
+
+
+def chagigah(complete=False):
+    """The real structure: chapters 1-3 with 8 / 7 / 8 mishnayot."""
+    labels = [(str(c), str(m)) for c, n in ((1, 8), (2, 7), (3, 8)) for m in range(1, n + 1)]
+    idx = index("Mishnah Chagigah", labels)
+    idx.allow_hole_ranges = not complete
+    return idx
+
+
+def test_end_of_chapter_is_not_a_hole_the_range_is_not_truncated():
+    idx = chagigah()
+    # real link "Mishnah Chagigah 2:1-10": chapter 2 ends at 2:7, 2:10 is not a hole
+    assert idx.resolve("Mishnah Chagigah 2:1-10") == []
+    assert idx.resolve("Mishnah Chagigah 2:9-3:1") == []  # start after the chapter's last mishnah
+    assert idx.resolve("Mishnah Chagigah 1:5-2:12") == []
+    assert idx.resolve("Mishnah Chagigah 2:1-7") == list(range(9, 16))  # exact range still fine
+
+
+def test_hole_range_off_for_complete_base_texts():
+    labels = [("2", "1"), ("2", "3")]  # a real interior hole (2:2)...
+    idx = index("Mishnah Berakhot", labels)
+    assert idx.resolve("Mishnah Berakhot 2:1-2:2") == [1]  # ...is resolved for other works
+    idx.allow_hole_ranges = False
+    assert idx.resolve("Mishnah Berakhot 2:1-2:2") == []  # but never for a complete base text
+
+
+def test_daf_address_in_integer_node_is_not_a_hole_range():
+    psalms = index("Psalms", [(str(c), str(v)) for c in range(1, 151) for v in (1, 2, 3)])
+    # '12a' used to become position 24 -> "Psalms 24:1 ... 25:3": a wrong edge
+    assert psalms.resolve("Psalms 12a:1-12b:3") == []
+    assert psalms.resolve("Psalms 12:1-13:3")  # a real range still resolves
 
 
 def test_exact_and_plain_ranges_unchanged():
@@ -66,3 +95,18 @@ def test_classes():
     ps = profile("Psalms", [("117", "1"), ("117", "2")], ["Integer", "Integer"], complete=True)
     assert rc.classify(ps, "Psalms 117:7") == (rc.OTHER, "invalid_ref_in_complete_text")
     assert rc.classify(ps, "Psalms 12a:1")[0] == rc.NUMBERING
+    assert rc.classify(ps, "Psalms 12a:1-12b:3")[0] == rc.NUMBERING
+
+
+def test_classifier_end_of_chapter_is_not_a_resolver_bug():
+    ch = [(str(c), str(m)) for c, n in ((1, 8), (2, 7), (3, 8)) for m in range(1, n + 1)]
+    p = profile("Mishnah Chagigah", ch, ["Integer", "Integer"], complete=True)
+    assert rc.classify(p, "Mishnah Chagigah 2:1-10") == (rc.OTHER, "invalid_ref_in_complete_text")
+    other = profile("Commentary on X", ch, ["Integer", "Integer"])
+    assert rc.classify(other, "Commentary on X 2:1-10") == (rc.PARTIAL, "beyond_end")
+
+
+def test_stratified_sample_random_part_never_repeats_a_stratified_link():
+    rows = [rc.Classified(i, f"c{i}", f"B{i % 40}", rc.PARTIAL, "x") for i in range(3000)]
+    got = rc.stratified_sample(rows)
+    assert len(got) == 600 + 200 and len({r.link_id for r in got}) == len(got)

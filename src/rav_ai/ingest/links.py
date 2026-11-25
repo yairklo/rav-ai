@@ -17,7 +17,7 @@ from pathlib import Path
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
-from rav_ai.sefaria.linkrefs import WorkIndex
+from rav_ai.sefaria.linkrefs import WorkIndex, is_complete_base
 
 Log = Callable[[str], None]
 _LINK_FILE_RE = re.compile(r"^links\d+\.csv$")  # excludes links_by_book*.csv aggregates
@@ -144,6 +144,9 @@ def ingest_links(engine: Engine, raw_dir: Path, snap_id: int, log: Log = print) 
                     (wid,),
                 )
                 idx = WorkIndex.build(idx_title, cur2.fetchall())
+                cur2.execute("SELECT category_path, dependence FROM works WHERE id=%s", (wid,))
+                cp_, dep_ = cur2.fetchone()
+                idx.allow_hole_ranges = not is_complete_base(cp_, dep_)  # never in Tanakh/...
                 cur2.close()
                 for c in cits:
                     ids = idx.resolve(c)

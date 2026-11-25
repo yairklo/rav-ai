@@ -58,7 +58,11 @@ def parse(raw: dict) -> list[KnownGap]:
         if not isinstance(g["ingested"], bool):
             raise KnownGapsError(f"{where}: ingested must be a boolean")
         try:
-            checked = dt.date.fromisoformat(g["checked"])
+            chk = g["checked"]
+            # an unquoted TOML date (checked = 2026-11-25) is already a datetime.date
+            if isinstance(chk, dt.datetime) or not isinstance(chk, (str, dt.date)):
+                raise TypeError("not a date")
+            checked = chk if isinstance(chk, dt.date) else dt.date.fromisoformat(chk)
         except (TypeError, ValueError) as e:
             raise KnownGapsError(f"{where}: checked must be an ISO date") from e
         for k in ("work", "scope", "source", "license", "note"):

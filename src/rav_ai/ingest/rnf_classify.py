@@ -13,7 +13,8 @@ Hebrew text is not confused with a resolver bug or a bad link. Classes:
 - ``other``: everything else, with a detail string (unparseable, node not in schema, ref past
   the end of a complete base text such as Tanakh/Mishnah/Bavli, i.e. an invalid link target).
 
-The detail is stored as ``ref_not_found:<class>`` only in reports; the DB reason is unchanged.
+The class is reported only (report + CSV); the DB ``reason`` stays ``ref_not_found`` because
+existing stats, reports and tests key on that exact value (see the PR description).
 """
 
 from __future__ import annotations
@@ -21,7 +22,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from rav_ai.sefaria.linkrefs import WorkIndex, labels_key, parse_citation
+from rav_ai.sefaria.linkrefs import WorkIndex, is_complete_base, labels_key, parse_citation
 from rav_ai.sefaria.structure import leaves
 
 PARTIAL = "partial_hebrew_text"
@@ -48,8 +49,8 @@ class WorkProfile:
             ", ".join(leaf.node_path): list(leaf.node.get("addressTypes") or [])
             for leaf in leaves(schema)
         }
-        cats = set(category_path or [])
-        complete = dependence is None and bool(cats & {"Tanakh", "Mishnah", "Bavli"})
+        complete = is_complete_base(category_path, dependence)
+        index.allow_hole_ranges = not complete
         return cls(index, nodes, complete)
 
 
@@ -101,8 +102,6 @@ def classify(profile: WorkProfile, citation: str) -> tuple[str, str]:
             return NUMBERING, "deeper_than_structure"
         if types and _address_mismatch(types, label_set):
             return NUMBERING, "address_type"
-    if p.end is not None and _hole_range_resolvable(idx, p):
-        return BUG, "range_endpoint_in_hole"
     for which, tup in (("start", p.start), ("end", p.end or ())):
         k = _first_missing(idx, p.node, tup)
         if k is None:
@@ -112,7 +111,11 @@ def classify(profile: WorkProfile, citation: str) -> tuple[str, str]:
             return OTHER, "nonnumeric_label"
         if profile.complete_base:
             return OTHER, "invalid_ref_in_complete_text"
-        return PARTIAL, f"{kind}_{which}"
+        if kind != "hole":  # beyond the last / before the first sibling: never a resolver bug
+            return PARTIAL, f"{kind}_{which}"
+        if p.end is not None and _hole_range_resolvable(idx, p):
+            return BUG, "range_endpoint_in_hole"
+        return PARTIAL, f"hole_{which}"
     return OTHER, "unclassified"
 
 
@@ -149,16 +152,20 @@ def classify_unresolved(engine, log=print) -> list[Classified]:
         rows = c.execute(text(_UNCLASSIFIED_SQL)).all()
         works = dict(c.execute(text("SELECT title, id FROM works")).all())
     by_work: dict[tuple[int, str], set[tuple[str, str]]] = {}
+    missing_books: set[tuple[str, str]] = set()
     for _, ca, cb, ba, bb in rows:
         for cit, book in ((ca, ba), (cb, bb)):
             wid, it = works.get(book), book
             if wid is None:
                 parent = work_prefix(book, works)
                 if parent is None:
+                    missing_books.add((cit, book))
                     continue
                 wid, it = works[parent], parent
             by_work.setdefault((wid, it), set()).add((cit, book))
-    verdict: dict[tuple[str, str], tuple[str, str]] = {}
+    verdict: dict[tuple[str, str], tuple[str, str]] = {
+        k: (OTHER, "book_not_in_works") for k in missing_books
+    }
     for n, ((wid, it), eps) in enumerate(sorted(by_work.items())):
         with engine.connect() as c:
             segs = c.execute(
@@ -198,7 +205,9 @@ def stratified_sample(rows: list[Classified], seed: int = 20261125) -> list[Clas
         by_book[r.book].append(r)
     top = [b for b, _ in Counter({b: len(v) for b, v in by_book.items()}).most_common(30)]
     out = [r for b in top for r in rng.sample(by_book[b], min(20, len(by_book[b])))]
-    return out + rng.sample(rows, min(200, len(rows)))
+    chosen = {id(r) for r in out}
+    rest = [r for r in rows if id(r) not in chosen]  # the 200 random never repeat a stratified one
+    return out + rng.sample(rest, min(200, len(rest)))
 
 
 def distribution_md(title: str, rows: list[Classified], examples: int = 2) -> list[str]:

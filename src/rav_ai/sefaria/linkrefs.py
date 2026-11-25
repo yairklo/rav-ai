@@ -28,6 +28,17 @@ def labels_key(labels: tuple[str, ...]) -> tuple[int, ...] | None:
     return None if None in out else tuple(out)  # type: ignore[arg-type]
 
 
+def _label_kind(label: str) -> str | None:
+    if _DAF_RE.match(label):
+        return "talmud"
+    return "int" if label.isdigit() else None
+
+
+def is_complete_base(category_path, dependence) -> bool:
+    """Tanakh / Mishnah / Bavli base text (not a commentary): a gap there is not a Hebrew gap."""
+    return dependence is None and bool(set(category_path or []) & {"Tanakh", "Mishnah", "Bavli"})
+
+
 @dataclass
 class ParsedCitation:
     node: str  # ", "-joined node titles ('' for the root/default node)
@@ -59,6 +70,9 @@ class WorkIndex:
     _prefix: dict[tuple[str, tuple[str, ...]], tuple[int, int]] = field(default_factory=dict)
     # per node: (position of its first entry, numeric key per entry); only for orderable nodes
     _order: dict[str, tuple[int, list[tuple[int, ...]]]] = field(default_factory=dict)
+    # False for a complete base text (Tanakh/Mishnah/Bavli): a missing ref there is never a hole
+    allow_hole_ranges: bool = True
+    _kinds: dict[tuple[str, int], set[str]] = field(default_factory=dict)
 
     @classmethod
     def build(cls, title: str, rows) -> WorkIndex:
@@ -114,27 +128,69 @@ class WorkIndex:
             return self._resolve_hole_range(p)
         return []
 
-    def _resolve_hole_range(self, p: ParsedCitation) -> list[int]:
-        """A range with an endpoint in a *hole* of the text (a segment that has no Hebrew text,
-        e.g. 'Rashi on Shevuot 30a:1-36b:4'): the existing segments inside the cited range.
+    def _label_kinds(self, node: str, level: int) -> set[str]:
+        """Address kinds ('talmud' | 'int') of the existing labels of `node` at `level`."""
+        cache = self._kinds
+        if (node, level) not in cache:
+            cache[(node, level)] = {
+                k
+                for _, n, labels, _ in self.entries
+                if n == node and len(labels) > level and (k := _label_kind(labels[level]))
+            }
+        return cache[(node, level)]
 
-        Conservative: every returned segment lies in the cited range, and a range that starts
-        before the first or ends after the last existing segment of the node (text missing at
-        the edges, or an invalid ref) is left unresolved rather than clamped."""
+    def _fits_node(self, node: str, labels: tuple[str, ...]) -> bool:
+        """Every label has the address kind the node uses at that level (12a in an integer node
+        does not: label_pos('12a') = 24 would otherwise land in chapter 24)."""
+        for level, lab in enumerate(labels):
+            kinds = self._label_kinds(node, level)
+            if _label_kind(lab) not in kinds:
+                return False
+        return True
+
+    def _interior_hole(self, node: str, keys: list, tup: tuple[str, ...]) -> bool:
+        """True if `tup` is absent but sits *between* existing siblings under one parent: at its
+        first missing level there is an existing sibling before it and one after it. A label
+        after the last (or before the first) sibling is the end of the text, not a hole."""
+        k = next((i for i in range(len(tup)) if (node, tup[: i + 1]) not in self._prefix), None)
+        if k is None:
+            return True  # exists
+        key = labels_key(tup[: k + 1])
+        if key is None:
+            return False
+        parent = key[:k]
+        start = bisect_left(keys, parent)
+        end = bisect_right(keys, (*parent, _INF))
+        before = bisect_left(keys, key) > start
+        after = bisect_right(keys, (*key, _INF)) < end
+        return before and after
+
+    def _resolve_hole_range(self, p: ParsedCitation) -> list[int]:
+        """A range with an endpoint in an *interior hole* of the text (a segment that has no
+        Hebrew text between two that do, e.g. 'Rashi on Shevuot 30a:1-36b:4'): the existing
+        segments inside the cited range.
+
+        Conservative: an endpoint counts as a hole only if, at the level where it is missing,
+        it has an existing sibling before and after it under the same parent; one past the last
+        (or before the first) sibling, e.g. 'Mishnah Chagigah 2:1-10', is left unresolved, as is
+        an address of the wrong kind for the node (a daf in an integer-numbered node), and
+        every work flagged as a complete base text (Tanakh, Mishnah, Bavli)."""
         o = self._order.get(p.node)
         ks = labels_key(p.start)
         ke = labels_key(p.end) if p.end is not None else None
-        if o is None or ks is None or ke is None or ks > ke:
+        if not self.allow_hole_ranges or o is None or ks is None or ke is None or ks > ke:
+            return []
+        assert p.end is not None
+        if not (self._fits_node(p.node, p.start) and self._fits_node(p.node, p.end)):
             return []
         base, keys = o
         first_labels = self.entries[base][2]
         if first_labels and _DAF_RE.match(first_labels[0]):
-            if not (_DAF_RE.match(p.start[0]) and _DAF_RE.match(p.end[0])):  # type: ignore[index]
+            if not (_DAF_RE.match(p.start[0]) and _DAF_RE.match(p.end[0])):
                 return []  # bare daf ("117") mixed with a/b addressing: not handled here
-        if ks < keys[0] and keys[0][: len(ks)] != ks:
-            return []
-        if ke > keys[-1] and keys[-1][: len(ke)] != ke:
-            return []
+        for tup in (p.start, p.end):
+            if not self._interior_hole(p.node, keys, tup):
+                return []
         lo = bisect_left(keys, ks)
         hi = bisect_right(keys, (*ke, _INF)) - 1
         if lo > hi or lo >= len(keys):

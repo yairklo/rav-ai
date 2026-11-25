@@ -48,3 +48,18 @@ def test_missing_key_and_empty_file_are_rejected():
         kg.parse({"gap": [{k: v for k, v in GOOD.items() if k != "license"}]})
     with pytest.raises(kg.KnownGapsError):
         kg.parse({})
+
+
+def test_unquoted_toml_date_is_accepted():
+    import datetime as dt
+    import tomllib
+
+    raw = tomllib.loads(
+        '[[gap]]\nwork="W"\nscope="s"\nstatus="partial_external"\nsource="he.wikisource"\n'
+        'page="p"\nrevid=5\nchecked=2026-11-25\nlicense="CC BY-SA 4.0"\ningested=false\nnote="n"\n'
+    )
+    assert isinstance(raw["gap"][0]["checked"], dt.date)
+    assert kg.parse(raw)[0].checked == dt.date(2026, 11, 25)
+    bad = copy.deepcopy(GOOD) | {"checked": 20261125}
+    with pytest.raises(kg.KnownGapsError):
+        kg.parse({"gap": [bad]})
