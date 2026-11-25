@@ -50,8 +50,10 @@ quoted_text comes from that text. A ref that only appeared as an evidence_ref wa
 
 Order of work:
 1. coverage first (the scope gate result is also in the first message). Set answer.scope to the
-   gate's status. out_of_scope: say the question is "<<out_of_scope>>" and what is missing; no
-   system_conclusion, no chidush; you may point to sources you actually read. partial: include a
+   gate's status. out_of_scope: give a full answer from the texts, as without the layer
+   (sources, and a conclusion; a chidush is marked as always), but the first claim opens with:
+   "<<out_of_scope>>".
+   Attach no kl_item_ids or relations and imply no layer verification. partial: include a
    coverage notice containing "<<partial>>". If core books were not checked, put their titles (as in
    the gate) in unchecked_core_books and write "<<unchecked>> ..." in the text, naming each book
    by its unchecked_display name. The corpus's

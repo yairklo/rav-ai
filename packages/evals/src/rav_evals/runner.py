@@ -40,6 +40,8 @@ class RunOutput(BaseModel):
     # knowledge-layer items the answer relied on: [{item_id, version, tool, tier}], plus a
     # {"tool": "_meta", "meta": {knowledge, scope_gate}} entry (stored in runs.knowledge_items)
     knowledge_items: list[dict[str, Any]] = Field(default_factory=list)
+    knowledge: str | None = None  # knowledge mode of the run: off | base | base+lens
+    scope_keys: list[str] = Field(default_factory=list)  # kl scope keys of those items (V8)
 
 
 AnswerFn = Callable[[GoldenQuestion], RunOutput]

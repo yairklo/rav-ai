@@ -30,7 +30,7 @@ KL_GIRSA_WITNESS = "KL_GIRSA_WITNESS"  # 4d
 KL_COVERAGE_BOOKS = "KL_COVERAGE_BOOKS"  # 4e
 KL_SILENCE_IS_NOT_AGREEMENT = "KL_SILENCE_IS_NOT_AGREEMENT"  # 4e
 KL_SCOPE_MISMATCH = "KL_SCOPE_MISMATCH"  # 4f
-KL_OUT_OF_SCOPE_CONCLUSION = "KL_OUT_OF_SCOPE_CONCLUSION"  # 4f
+KL_OUT_OF_SCOPE_ITEMS = "KL_OUT_OF_SCOPE_ITEMS"  # 4f
 KL_SCOPE_NOTICE = "KL_SCOPE_NOTICE"  # 4f
 KL_UNUSUAL_FLAG = "KL_UNUSUAL_FLAG"  # 4g
 KL_MARAN_INSTRUCTIONS = "KL_MARAN_INSTRUCTIONS"  # 4h
@@ -51,7 +51,7 @@ ALL_CODES = (
     KL_COVERAGE_BOOKS,
     KL_SILENCE_IS_NOT_AGREEMENT,
     KL_SCOPE_MISMATCH,
-    KL_OUT_OF_SCOPE_CONCLUSION,
+    KL_OUT_OF_SCOPE_ITEMS,
     KL_SCOPE_NOTICE,
     KL_UNUSUAL_FLAG,
     KL_MARAN_INSTRUCTIONS,
@@ -335,22 +335,22 @@ def validate_knowledge(answer: Answer, retrieved: set[str], ctx: KnowledgeContex
                 )
             )
         if gate.status == "out_of_scope":
-            if any(
-                c.type in (ClaimType.SYSTEM_CONCLUSION, ClaimType.CHIDUSH) for c in answer.claims
-            ):
-                problems.append(
-                    _fmt(
-                        KL_OUT_OF_SCOPE_CONCLUSION,
-                        "the question is out of scope: no system_conclusion and no chidush; say "
-                        "what is missing (you may point to sources actually read)",
-                    )
-                )
-            if P.out_of_scope not in all_text:
+            # a full answer (sources, conclusion, marked chidush) as with knowledge=off, headed by
+            # the notice, with no layer items attached and no layer verification implied
+            head = _claim_text(answer.claims[0]).strip() if answer.claims else ""
+            if not head.startswith(P.out_of_scope):
                 problems.append(
                     _fmt(
                         KL_SCOPE_NOTICE,
-                        f'say that the question is {P.out_of_scope} ("{P.out_of_scope}") '
-                        "and what is missing",
+                        f'the first claim must open with the notice: "{P.out_of_scope}"',
+                    )
+                )
+            if any(c.kl_item_ids or c.relations for c in answer.claims):
+                problems.append(
+                    _fmt(
+                        KL_OUT_OF_SCOPE_ITEMS,
+                        "the question is out of scope: do not attach knowledge-layer items "
+                        "(kl_item_ids) or relations; answer from the texts you read",
                     )
                 )
         elif gate.status == "partial" and P.partial not in all_text:
