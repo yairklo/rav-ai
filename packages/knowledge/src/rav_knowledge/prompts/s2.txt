@@ -1,0 +1,4 @@
+שלב S2: סיכום מהלך של סוגיה, מהגמרא בלבד.
+בנה רשימת צעדים (steps) לפי סדר הסוגיה. לכל צעד: move (statement|question|objection|answer|support|conclusion|aside), subtype אם יש, responds_to (מזהה צעד קודם; חובה חוץ מהפתיחה), relation, standing, speaker (אם רבה/רבא לא ברור כתוב ambiguous), text_he עד 25 מילים, ו-evidence מהגמרא.
+רש"י והביאור (A) עוזרים לקרוא בלבד. אל תכלול אחרונים, מקורות משניים או הלכה למעשה; readings נשאר ריק.
+בכל ראיה (evidence) כתוב role: states אם הגמרא אומרת זאת במפורש (ברירת המחדל לצעד), attributes אם הציטוט מייחס דברים לאומרם, supports אם הציטוט רק תומך בעקיפין. ציטוט שאינו מופיע בקטע לא יתקבל: אל תמציא.

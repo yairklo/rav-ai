@@ -14,6 +14,7 @@ from sqlalchemy import (
     JSON,
     BigInteger,
     Boolean,
+    CheckConstraint,
     DateTime,
     Float,
     ForeignKey,
@@ -249,12 +250,40 @@ class Annotation(Base):
     confidence: Mapped[float | None] = mapped_column(Float)
     origin: Mapped[str] = mapped_column(String(16))
     raw_hash: Mapped[str | None] = mapped_column(String(64))
+    # knowledge layer (migration 0005)
+    status: Mapped[str] = mapped_column(String(16), default="generated", server_default="generated")
+    is_current: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+    method: Mapped[str | None] = mapped_column(String(48))  # e.g. s0.acronym, s0b.llm_choice
+    method_version: Mapped[str | None] = mapped_column(String(32))
+    context_domain: Mapped[str | None] = mapped_column(String(16))  # talmud|halakha|responsa|...
+    context: Mapped[dict | None] = mapped_column(JSONB)
+    entity_id: Mapped[int | None] = mapped_column(ForeignKey("kl_entities.id"))
+    job_id: Mapped[int | None] = mapped_column(ForeignKey("kl_jobs.id"), index=True)
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), default=_now, server_default=text("now()")
+    )
+
+
+Index(
+    "uq_annotations_current_span",
+    Annotation.segment_id,
+    Annotation.version_id,
+    Annotation.span_start,
+    Annotation.span_end,
+    Annotation.kind,
+    unique=True,
+    postgresql_where=text("is_current"),
+)
 
 
 class Card(Base):
-    """AI analysis card of a segment; may rest on other cards (dependency edges)."""
+    """DEPRECATED: superseded by the knowledge layer (``kl_items``); kept until migrated.
+
+    AI analysis card of a segment; may rest on other cards (dependency edges).
+    """
 
     __tablename__ = "cards"
+    __table_args__ = ({"comment": "DEPRECATED: superseded by kl_items"},)
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     segment_id: Mapped[int] = mapped_column(ForeignKey("segments.id"), index=True)
@@ -268,9 +297,10 @@ class Card(Base):
 
 
 class CardDependency(Base):
-    """`card_id` rests on `depends_on_card_id` (invalidate downstream when upstream is stale)."""
+    """DEPRECATED (see ``Card``). `card_id` rests on `depends_on_card_id` (stale propagates)."""
 
     __tablename__ = "card_dependencies"
+    __table_args__ = ({"comment": "DEPRECATED: superseded by kl_items"},)
 
     card_id: Mapped[int] = mapped_column(ForeignKey("cards.id"), primary_key=True)
     depends_on_card_id: Mapped[int] = mapped_column(ForeignKey("cards.id"), primary_key=True)
@@ -309,6 +339,9 @@ class Run(Base):
     input_tokens: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     output_tokens: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     cost_usd: Mapped[float | None] = mapped_column(Float)  # None = pricing unknown
+    knowledge_items: Mapped[list[Any]] = mapped_column(
+        JsonType, default=list, server_default=text("'[]'")
+    )  # [(item_key, version)] of knowledge-layer items the run relied on
 
     # Verification
     verification: Mapped[dict[str, Any] | None] = mapped_column(JsonType)  # VerificationReport
@@ -317,3 +350,456 @@ class Run(Base):
     # Human/LLM review, filled later; gate for using the row as training data
     review_label: Mapped[str | None] = mapped_column(String(32))
     review_notes: Mapped[str | None] = mapped_column(Text)
+
+
+# ---- knowledge layer (migration 0005) --------------------------------------------------
+# The text is the authority; these tables are a map over it. Every claim hangs on a span of
+# raw text (kl_evidence); an item is never a citable source.
+
+KL_KINDS = (
+    "sugya",
+    "sugya_summary",
+    "commentary_note",
+    "issue",
+    "position",
+    "machloket",
+    "open_question",
+    "chakira",
+    "source_claim",
+    "girsa_variant",
+    "method_principle",
+    "topic_card",
+    "mishnah_card",
+)
+KL_ITEM_STATUS = ("generated", "verified", "rejected")
+KL_JOB_STATUS = ("running", "done", "failed", "aborted", "promoted")
+KL_TASK_STATE = ("pending", "running", "done", "failed", "skipped")
+KL_LINK_RELS = (
+    "part_of",
+    "summarizes",
+    "annotates",
+    "depends_on",
+    "discusses",
+    "continues",
+    "sub_issue_of",
+    "position_on",
+    "about_issue",
+    "raised_in",
+)
+KL_RELATIONS = (
+    "objects_to",
+    "answers",
+    "supports",
+    "disputes",
+    "rules_like",
+    "qualifies",
+    "reads_as",
+    "aligns_with_side",
+    "rejects_reading",
+    "claims_error_in",
+    "depends_on_girsa",
+    "parallel_to",
+    "same_as",
+    "derived_from",
+    # din kdima: from (the one that goes first) -> to (the displaced); a ruling, not shaat_hadchak
+    "takes_precedence_over",
+)
+KL_EVIDENCE_ROLES = (
+    "states",
+    "supports",
+    "attributes",
+    "adopts",
+    "disputes",
+    "interprets",
+    "proposes",
+    "claims_error",
+    "witness",
+)
+KL_TIERS = (
+    "canonical",
+    "rishonim",
+    "codes",
+    "nosei_kelim",
+    "acharonim",
+    "lamdanut",
+    "later_responsa",
+    "sugya_compendium",
+    "modern_secondary",
+    "girsa_witness",
+)
+
+
+KL_RECEPTION_CONTEXTS = (
+    "iyun",
+    "lemaase",
+    "snif",
+    "shaat_hadchak",
+    "bediavad",
+    "public_instruction",
+)
+KL_RECEPTION_CONTEXT_CHECK = (
+    "context IN ('iyun', 'lemaase', 'snif', 'shaat_hadchak', 'bediavad', 'public_instruction') "
+    "OR context LIKE 'minhag:%'"
+)
+
+
+def _in(col: str, values: tuple[str, ...], *, nullable: bool = False) -> str:
+    vals = ", ".join(f"'{v}'" for v in values)
+    return f"{col} IN ({vals})" + (f" OR {col} IS NULL" if nullable else "")
+
+
+class KlEntity(Base):
+    """A person/work/place/concept that sources talk about (holder of a view, author, ...)."""
+
+    __tablename__ = "kl_entities"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    slug: Mapped[str] = mapped_column(String(128), unique=True)
+    kind: Mapped[str] = mapped_column(String(16), default="person")  # person|work|place|concept
+    name_he: Mapped[str | None] = mapped_column(String(256))
+    name_en: Mapped[str | None] = mapped_column(String(256))
+    author_id: Mapped[int | None] = mapped_column(ForeignKey("authors.id"), index=True)
+    work_id: Mapped[int | None] = mapped_column(ForeignKey("works.id"), index=True)
+    period: Mapped[str | None] = mapped_column(String(32))
+    aliases: Mapped[list | None] = mapped_column(JSONB)
+    note: Mapped[str | None] = mapped_column(Text)
+
+
+class KlWorkAlias(Base):
+    """Alternative names of a work as sources cite it (e.g. "הר"ן" -> Ran on Shabbat)."""
+
+    __tablename__ = "kl_work_aliases"
+    __table_args__ = (UniqueConstraint("work_id", "alias"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    work_id: Mapped[int] = mapped_column(ForeignKey("works.id"), index=True)
+    alias: Mapped[str] = mapped_column(String(256), index=True)
+    kind: Mapped[str | None] = mapped_column(String(16))  # short|citation|nickname
+
+
+class KlJob(Base):
+    __tablename__ = "kl_jobs"
+    __table_args__ = (
+        CheckConstraint(_in("status", KL_JOB_STATUS), name="ck_kl_jobs_status"),
+        Index("ix_kl_jobs_stage_scope", "stage", "scope_key"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    stage: Mapped[str] = mapped_column(String(16))
+    scope_key: Mapped[str] = mapped_column(String(256))
+    model: Mapped[str | None] = mapped_column(String(128))
+    prompt_version: Mapped[str | None] = mapped_column(String(32))
+    prompt_hash: Mapped[str | None] = mapped_column(String(64))
+    schema_version: Mapped[int | None] = mapped_column(Integer)
+    params: Mapped[dict | None] = mapped_column(JSONB)
+    status: Mapped[str] = mapped_column(String(16), default="running")
+    input_tokens: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    output_tokens: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    cost_usd: Mapped[float] = mapped_column(Float, default=0.0, server_default="0")
+    stats: Mapped[dict | None] = mapped_column(JSONB)
+    note: Mapped[str | None] = mapped_column(Text)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class KlTask(Base):
+    __tablename__ = "kl_tasks"
+    __table_args__ = (
+        UniqueConstraint("job_id", "task_key"),
+        CheckConstraint(_in("state", KL_TASK_STATE), name="ck_kl_tasks_state"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("kl_jobs.id"), index=True)
+    task_key: Mapped[str] = mapped_column(String(256))
+    input_hash: Mapped[str] = mapped_column(String(64), index=True)
+    state: Mapped[str] = mapped_column(String(16), default="pending")
+    attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    last_error: Mapped[str | None] = mapped_column(Text)
+    input_tokens: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    output_tokens: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    cost_usd: Mapped[float] = mapped_column(Float, default=0.0, server_default="0")
+    result: Mapped[dict | None] = mapped_column(JSONB)  # parsed LLM output (resume without re-call)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class KlItem(Base):
+    __tablename__ = "kl_items"
+    __table_args__ = (
+        UniqueConstraint("item_key", "version"),
+        UniqueConstraint("item_key", "input_hash"),
+        CheckConstraint(_in("kind", KL_KINDS), name="ck_kl_items_kind"),
+        CheckConstraint(_in("status", KL_ITEM_STATUS), name="ck_kl_items_status"),
+        Index(
+            "uq_kl_items_current",
+            "item_key",
+            unique=True,
+            postgresql_where=text("is_current"),
+        ),
+        Index("ix_kl_items_scope_kind", "scope_key", "kind"),
+        Index(
+            "ix_kl_items_search",
+            text("to_tsvector('simple', coalesce(search_text_he, ''))"),
+            postgresql_using="gin",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    kind: Mapped[str] = mapped_column(String(24))
+    item_key: Mapped[str] = mapped_column(String(256))
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    scope_key: Mapped[str] = mapped_column(String(256))
+    work_id: Mapped[int | None] = mapped_column(ForeignKey("works.id"), index=True)
+    start_segment_id: Mapped[int | None] = mapped_column(ForeignKey("segments.id"))
+    end_segment_id: Mapped[int | None] = mapped_column(ForeignKey("segments.id"))
+    title_he: Mapped[str | None] = mapped_column(String(512))
+    body: Mapped[dict] = mapped_column(JSONB)
+    schema_version: Mapped[int] = mapped_column(Integer, default=1)
+    status: Mapped[str] = mapped_column(String(16), default="generated")
+    is_current: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+    stale: Mapped[bool] = mapped_column(Boolean, default=False, server_default=text("false"))
+    confidence: Mapped[float | None] = mapped_column(Float)
+    input_hash: Mapped[str] = mapped_column(String(64))
+    job_id: Mapped[int | None] = mapped_column(ForeignKey("kl_jobs.id"), index=True)
+    model: Mapped[str | None] = mapped_column(String(128))
+    prompt_version: Mapped[str | None] = mapped_column(String(32))
+    prompt_hash: Mapped[str | None] = mapped_column(String(64))
+    source_version_ids: Mapped[list | None] = mapped_column(JSONB)
+    can_display_public: Mapped[bool] = mapped_column(Boolean, default=True)
+    can_train: Mapped[bool] = mapped_column(Boolean, default=True)
+    check_report: Mapped[dict | None] = mapped_column(JSONB)
+    rejected_by: Mapped[str | None] = mapped_column(String(16))  # auto|human
+    search_text_he: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class KlItemSegment(Base):
+    __tablename__ = "kl_item_segments"
+    __table_args__ = (
+        Index("ix_kl_item_segments_segment", "segment_id"),
+        CheckConstraint(_in("role", ("member", "anchor", "commentary")), name="ck_kl_iseg_role"),
+    )
+
+    item_id: Mapped[int] = mapped_column(ForeignKey("kl_items.id"), primary_key=True)
+    segment_id: Mapped[int] = mapped_column(ForeignKey("segments.id"), primary_key=True)
+    role: Mapped[str] = mapped_column(String(12), primary_key=True, default="member")
+    ord: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class KlEvidence(Base):
+    __tablename__ = "kl_evidence"
+    __table_args__ = (
+        Index("ix_kl_evidence_segment", "segment_id"),
+        Index("ix_kl_evidence_item", "item_id"),
+        CheckConstraint(_in("role", KL_EVIDENCE_ROLES), name="ck_kl_evidence_role"),
+        CheckConstraint(
+            _in("locate_status", ("located", "not_found", "ambiguous", "out_of_scope")),
+            name="ck_kl_evidence_locate",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    item_id: Mapped[int] = mapped_column(ForeignKey("kl_items.id"))
+    claim_id: Mapped[str | None] = mapped_column(String(64))  # id of the claim inside body
+    segment_id: Mapped[int | None] = mapped_column(ForeignKey("segments.id"))
+    version_id: Mapped[int | None] = mapped_column(ForeignKey("versions.id"))
+    span_start: Mapped[int | None] = mapped_column(Integer)  # char offsets in RAW text
+    span_end: Mapped[int | None] = mapped_column(Integer)
+    quote: Mapped[str] = mapped_column(Text)
+    quote_prefix: Mapped[str | None] = mapped_column(String(32))  # form B, up to 32 chars
+    quote_suffix: Mapped[str | None] = mapped_column(String(32))
+    raw_hash: Mapped[str | None] = mapped_column(String(64))
+    role: Mapped[str] = mapped_column(String(16), default="supports")
+    locate_status: Mapped[str] = mapped_column(String(16), default="located")
+    entail_status: Mapped[str | None] = mapped_column(String(16))
+
+
+class KlLink(Base):
+    __tablename__ = "kl_links"
+    __table_args__ = (
+        UniqueConstraint("from_item_id", "to_item_id", "rel"),
+        Index("ix_kl_links_to", "to_item_id"),
+        CheckConstraint(_in("rel", KL_LINK_RELS), name="ck_kl_links_rel"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    from_item_id: Mapped[int] = mapped_column(ForeignKey("kl_items.id"))
+    to_item_id: Mapped[int] = mapped_column(ForeignKey("kl_items.id"))
+    rel: Mapped[str] = mapped_column(String(16))
+
+
+class KlRelation(Base):
+    __tablename__ = "kl_relations"
+    __table_args__ = (
+        Index("ix_kl_relations_from", "from_item_id"),
+        Index("ix_kl_relations_to", "to_item_id"),
+        CheckConstraint(_in("rel", KL_RELATIONS), name="ck_kl_relations_rel"),
+        CheckConstraint(
+            _in(
+                "attribution",
+                ("direct", "reported", "explicit", "inferred_by_source", "inferred_by_system"),
+                nullable=True,
+            ),
+            name="ck_kl_relations_attribution",
+        ),
+        CheckConstraint(
+            _in(
+                "stance",
+                ("asserts", "suggests", "considers", "rejects", "reports_others", "as_snif"),
+                nullable=True,
+            ),
+            name="ck_kl_relations_stance",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    from_item_id: Mapped[int] = mapped_column(ForeignKey("kl_items.id"))
+    from_claim: Mapped[str | None] = mapped_column(String(64))
+    to_item_id: Mapped[int] = mapped_column(ForeignKey("kl_items.id"))
+    to_claim: Mapped[str | None] = mapped_column(String(64))
+    rel: Mapped[str] = mapped_column(String(24))
+    asserted_by_entity: Mapped[int | None] = mapped_column(ForeignKey("kl_entities.id"))
+    asserted_by_work: Mapped[int | None] = mapped_column(ForeignKey("works.id"))
+    attribution: Mapped[str | None] = mapped_column(String(24))
+    stance: Mapped[str | None] = mapped_column(String(16))
+    evidence_ids: Mapped[list | None] = mapped_column(JSONB)
+    confidence: Mapped[float | None] = mapped_column(Float)
+    is_current: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+
+
+class KlSource(Base):
+    """Which works feed the layer, and in what role. ``weight_tier`` is only a tie-breaker for
+    selection and display - never halakhic weight or a reliability score."""
+
+    __tablename__ = "kl_sources"
+    __table_args__ = (
+        CheckConstraint(_in("tier", KL_TIERS), name="ck_kl_sources_tier"),
+        CheckConstraint(
+            _in("role", ("primary", "lens", "witness", "reference_only")), name="ck_kl_sources_role"
+        ),
+        CheckConstraint(
+            _in(
+                "license_tier",
+                ("PUBLIC_COMMERCIAL", "NON_COMMERCIAL_ONLY", "PERSONAL_ONLY_RESTRICTED"),
+            ),
+            name="ck_kl_sources_license_tier",
+        ),
+        CheckConstraint(
+            _in("weight_tier", ("core", "major", "extended", "long_tail"), nullable=True),
+            name="ck_kl_sources_weight_tier",
+        ),
+    )
+
+    work_id: Mapped[int] = mapped_column(ForeignKey("works.id"), primary_key=True)
+    tier: Mapped[str] = mapped_column(String(24))
+    role: Mapped[str] = mapped_column(String(16))
+    origin: Mapped[str | None] = mapped_column(String(64))
+    license_tier: Mapped[str] = mapped_column(String(32))  # fail-closed: no default
+    license_basis: Mapped[str | None] = mapped_column(Text)
+    weight_tier: Mapped[str | None] = mapped_column(String(12))
+    # closed list validated in pydantic (rav_knowledge.sources.AUTHORITY_AREAS), NULL = not
+    # classified; information only (like weight_tier), no effect on selection
+    authority_areas: Mapped[list | None] = mapped_column(JSONB)
+    added_by: Mapped[str | None] = mapped_column(String(64))
+    note: Mapped[str | None] = mapped_column(Text)
+
+
+class KlWitness(Base):
+    """Register of textual witnesses so a ``girsa_variant`` points at an identified witness."""
+
+    __tablename__ = "kl_witnesses"
+    __table_args__ = (
+        CheckConstraint(
+            _in("kind", ("manuscript", "print", "genizah", "rishon_quote", "edition")),
+            name="ck_kl_witnesses_kind",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    siglum: Mapped[str] = mapped_column(String(64), unique=True)
+    kind: Mapped[str] = mapped_column(String(16))
+    name_he: Mapped[str | None] = mapped_column(String(256))
+    date_from: Mapped[int | None] = mapped_column(Integer)
+    date_to: Mapped[int | None] = mapped_column(Integer)
+    tradition: Mapped[str | None] = mapped_column(String(64))
+    holding: Mapped[str | None] = mapped_column(String(256))
+    source_url: Mapped[str | None] = mapped_column(Text)
+    license_basis: Mapped[str | None] = mapped_column(Text)
+    can_index: Mapped[bool] = mapped_column(Boolean, default=False)
+    can_display_public: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
+class KlReception(Base):
+    """Computed cache of how a claim is received in a context. Never manual input, never a
+    number; rebuilt when the policy changes. ``rejected`` is allowed only for context=lemaase."""
+
+    __tablename__ = "kl_reception"
+    __table_args__ = (
+        UniqueConstraint("target_item_id", "target_claim", "context", "policy_version"),
+        CheckConstraint(
+            _in("weight_label", ("primary", "alternative", "snif_only", "rejected", "disputed")),
+            name="ck_kl_reception_label",
+        ),
+        CheckConstraint(
+            "weight_label <> 'rejected' OR context = 'lemaase'", name="ck_kl_reception_rejected"
+        ),
+        CheckConstraint(KL_RECEPTION_CONTEXT_CHECK, name="ck_kl_reception_context"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    target_item_id: Mapped[int] = mapped_column(ForeignKey("kl_items.id"))
+    target_claim: Mapped[str] = mapped_column(String(64), default="")
+    # iyun|lemaase|snif|shaat_hadchak|bediavad|public_instruction|minhag:<x>
+    context: Mapped[str] = mapped_column(String(48))
+    weight_label: Mapped[str] = mapped_column(String(16))
+    basis: Mapped[dict | None] = mapped_column(JSONB)
+    policy_version: Mapped[str] = mapped_column(String(32))
+    computed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class KlCoverage(Base):
+    """Distinguishes "this work has nothing on it" from "we did not ingest this work"."""
+
+    __tablename__ = "kl_coverage"
+    __table_args__ = (
+        CheckConstraint(
+            _in("status", ("covered", "not_in_work", "not_ingested", "unknown")),
+            name="ck_kl_coverage_status",
+        ),
+    )
+
+    scope_key: Mapped[str] = mapped_column(String(256), primary_key=True)
+    work_id: Mapped[int] = mapped_column(ForeignKey("works.id"), primary_key=True)
+    status: Mapped[str] = mapped_column(String(16), default="unknown")
+    checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class KlOverride(Base):
+    """Human corrections; applied after every task so a re-run cannot undo them."""
+
+    __tablename__ = "kl_overrides"
+    __table_args__ = (
+        CheckConstraint(
+            _in("action", ("approve", "edit", "reject", "set_boundary", "set_abbrev")),
+            name="ck_kl_overrides_action",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    target_key: Mapped[str] = mapped_column(String(256), index=True)  # item_key or annotation key
+    action: Mapped[str] = mapped_column(String(16))
+    corrected: Mapped[dict | None] = mapped_column(JSONB)
+    note: Mapped[str | None] = mapped_column(Text)
+    reviewer: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class KlReview(Base):
+    __tablename__ = "kl_reviews"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    item_id: Mapped[int] = mapped_column(ForeignKey("kl_items.id"), index=True)
+    reviewer: Mapped[str | None] = mapped_column(String(64))
+    verdict: Mapped[str] = mapped_column(String(16))  # approve|reject|edit|flag
+    note: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
