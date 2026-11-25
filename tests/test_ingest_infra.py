@@ -269,3 +269,18 @@ def test_work_prefix_picks_longest_parent():
     assert work_prefix("Tur, Orach Chayim", works) == "Tur"
     assert work_prefix("Tur HaArokh, Orach Chayim", works) == "Tur HaArokh"
     assert work_prefix("Turim", works) is None
+
+
+def test_bare_daf_citation_covers_both_sides():
+    from rav_ai.sefaria.linkrefs import WorkIndex
+
+    rows = [
+        ("Shabbat 117a:1", 0, [0, 0], [], ["117a", "1"], 1),
+        ("Shabbat 117a:2", 0, [0, 1], [], ["117a", "2"], 2),
+        ("Shabbat 117b:1", 0, [1, 0], [], ["117b", "1"], 3),
+        ("Shabbat 118a:1", 0, [2, 0], [], ["118a", "1"], 4),
+    ]
+    idx = WorkIndex.build("Shabbat", rows)
+    assert idx.resolve("Shabbat 117") == [1, 2, 3]
+    assert idx.resolve("Shabbat 117-118") == [1, 2, 3, 4]
+    assert idx.resolve("Shabbat 117b") == [3]

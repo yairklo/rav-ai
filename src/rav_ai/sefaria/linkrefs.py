@@ -6,6 +6,7 @@ import re
 from dataclasses import dataclass, field
 
 _ADDR = r"[0-9]+[ab]?(?:[:.][0-9]+[ab]?)*"
+_DAF_RE = re.compile(r"^[0-9]+[ab]$")
 _REST_RE = re.compile(rf"^(?:, (?P<node>.+?))?(?: (?P<start>{_ADDR})(?:-(?P<end>{_ADDR}))?)?$")
 
 
@@ -55,6 +56,12 @@ class WorkIndex:
                 key = (node, labels[:n])
                 lo, _hi = idx._prefix.get(key, (pos, pos))
                 idx._prefix[key] = (lo, pos)
+            if labels and _DAF_RE.match(labels[0]):
+                # Sefaria: a bare daf ("Shabbat 117") means both sides (117a and 117b)
+                for n in range(1, len(labels) + 1):
+                    key = (node, (labels[0][:-1], *labels[1:n]))
+                    lo, _hi = idx._prefix.get(key, (pos, pos))
+                    idx._prefix[key] = (lo, pos)
         return idx
 
     def resolve(self, citation: str) -> list[int] | None:

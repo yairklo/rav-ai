@@ -75,6 +75,19 @@ def token_counts(engine: Engine, top_versions: dict[int, int], encoding: str, lo
     return words, toks
 
 
+def in_scope_pct(lk: dict) -> str:
+    by = lk.get("unresolved_by_reason", {})
+    scope = (
+        lk.get("links_total", 0) - by.get("book_not_in_export", 0) - by.get("no_hebrew_version", 0)
+    )
+    bad = (
+        lk.get("links_unresolved", 0)
+        - by.get("book_not_in_export", 0)
+        - by.get("no_hebrew_version", 0)
+    )
+    return f"{100 * (scope - bad) / scope:.3f}" if scope else "n/a"
+
+
 def build(
     engine: Engine,
     policy: LicensePolicy,
@@ -187,6 +200,8 @@ def build(
         md += [
             f"- links total: {lk.get('links_total', 0):,}; unresolved: "
             f"{lk.get('links_unresolved', 0):,}; **resolved: {lk.get('resolved_pct')}%**",
+            f"- **resolved among links whose both books are ingested (Hebrew): {in_scope_pct(lk)}%** "
+            "(excludes book_not_in_export / no_hebrew_version: books outside the Hebrew export)",
             f"- exact single-segment links: {lk.get('links_exact', 0):,}; edges: "
             f"{lk.get('edges', 0):,} (range-collapsed: {lk.get('edges_range_collapsed', 0):,})",
             "",
