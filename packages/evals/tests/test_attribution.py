@@ -63,15 +63,18 @@ def test_units_strata_and_report():
         s1 == stratified_sample(units, 3, seed=1)
         and len({(u.category, u.source_role) for u in s1}) == 3
     )
-    ratings = [{"unit_id": f"u{i}", "verdict": "ok"} for i in range(98)]
+    t = {"claim_type": "interpretation"}
+    ratings = [{"unit_id": f"u{i}", "verdict": "ok", **t} for i in range(98)]
     ratings += [
         {
+            **t,
             "unit_id": "w1",
             "verdict": "wrong",
             "error_type": "wrong_attribution",
             "subtype": "hava_amina_as_conclusion",
         },
         {
+            **t,
             "unit_id": "w2",
             "verdict": "wrong",
             "error_type": "wrong_attribution",

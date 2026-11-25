@@ -10,8 +10,10 @@ from __future__ import annotations
 
 import difflib
 import json
+import math
 import random
 from collections import defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -20,12 +22,15 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..config import EvalsConfig
-from ..kl_lookup import InMemoryKnowledgeLookup
-from ..kl_metrics import RecordedRun, RejectedClaim, evaluate_recorded, load_fixtures
+from ..kl_metrics import (
+    RecordedRun,
+    RejectedClaim,
+    claim_codes,
+    evaluate_recorded,
+    load_fixtures,
+)
 from ..pairs import read_jsonl
 from ..ratings import RatingStore
-from ..schema import Answer
-from ..verifier import InMemorySourceStore, verify_answer
 
 # ---- (a) answers --------------------------------------------------------------------------
 
@@ -37,15 +42,36 @@ class AnswerEntry:
     auto_codes: list[str]
 
 
-def answer_queue(fixtures_dir: Path, cfg: EvalsConfig, seed: int = 0) -> list[AnswerEntry]:
-    """Stratified by category (round-robin, up to ``answers_sample_per_category`` each),
-    questions that failed automatically first."""
+def _entries(
+    fixtures_dir: Path, cfg: EvalsConfig, *, include_synthetic: bool, include_heldout: bool
+) -> list[AnswerEntry]:
     runs, _ = load_fixtures(fixtures_dir)
-    entries = []
+    out = []
     for rr in runs:
+        if (rr.synthetic and not include_synthetic) or (
+            rr.split == "heldout" and not include_heldout
+        ):
+            continue
         res, _s = evaluate_recorded(rr, cfg)
         codes = res.verification.failure_codes() if res.verification else []
-        entries.append(AnswerEntry(rr, res.status, codes))
+        out.append(AnswerEntry(rr, res.status, codes))
+    return out
+
+
+def answer_queue(
+    fixtures_dir: Path,
+    cfg: EvalsConfig,
+    seed: int = 0,
+    *,
+    include_synthetic: bool = False,
+    include_heldout: bool = False,
+) -> list[AnswerEntry]:
+    """Stratified by category (round-robin, up to ``answers_sample_per_category`` each),
+    questions that failed automatically first. Synthetic seed runs and heldout runs are left
+    out by default (heldout must never feed prompt tuning)."""
+    entries = _entries(
+        fixtures_dir, cfg, include_synthetic=include_synthetic, include_heldout=include_heldout
+    )
     rng = random.Random(seed)
     by_cat: dict[str, list[AnswerEntry]] = defaultdict(list)
     for e in sorted(entries, key=lambda e: e.run.fixture_id):
@@ -70,13 +96,7 @@ def rejected_from_rating(
     rr = entry.run
     i = int(rating["claim_index"])
     claim = rr.output.answer.claims[i]
-    rep = verify_answer(
-        Answer(claims=[claim], disclaimer="x"),
-        rr.output.retrieved_refs,
-        InMemorySourceStore(rr.sources),
-        knowledge=None if rr.knowledge is None else InMemoryKnowledgeLookup(rr.knowledge),
-        markers=cfg.markers,
-    )
+    codes = claim_codes(claim, rr, cfg)
     return RejectedClaim(
         fixture_id=f"rejected-{rr.fixture_id}-c{i}",
         run_fixture=rr.fixture_id,
@@ -87,39 +107,50 @@ def rejected_from_rating(
         note=rating.get("note", ""),
         rater_id=rating["rater_id"],
         prompt_version=rr.output.prompt_version,
-        auto_caught=not rep.passed,
+        auto_caught=bool(codes),
+        caught_codes=codes,
     )
 
 
 def export_errors(
-    entries: list[AnswerEntry],
-    store: RatingStore,
     fixtures_dir: Path,
+    store: RatingStore,
     reports_dir: Path,
     cfg: EvalsConfig,
 ) -> dict[str, Any]:
-    """Rejected / fixed claims -> reports/kl/errors-<prompt_version>.md and one regression
-    fixture per claim (``rejected-*.json`` next to the recorded runs)."""
+    """Rejected / fixed claims -> ``reports/kl/errors-<prompt_version>.md`` (the counter-examples
+    that may feed the next prompt) and one regression fixture per claim (``rejected-*.json``).
+
+    Heldout runs go to a separate ``errors-heldout-<pv>.md`` that must never enter a prompt,
+    and get no fixture; synthetic seed runs are skipped entirely."""
+    entries = _entries(fixtures_dir, cfg, include_synthetic=True, include_heldout=True)
     by_id = {e.run.fixture_id: e for e in entries}
     latest = store.latest("answers", "unit_id")
-    groups: dict[str, list[tuple[RejectedClaim, AnswerEntry]]] = defaultdict(list)
-    written = []
+    groups: dict[tuple[str, str], list[tuple[RejectedClaim, AnswerEntry]]] = defaultdict(list)
+    written, skipped_synthetic = [], 0
     for (_rater, _unit), r in sorted(latest.items()):
         if r.get("kind") != "claim" or r.get("verdict") not in ("wrong", "fix"):
             continue
         e = by_id.get(r["run_id"])
         if e is None:
             continue
+        if e.run.synthetic:
+            skipped_synthetic += 1
+            continue
         rc = rejected_from_rating(e, r, cfg)
-        p = fixtures_dir / f"{rc.fixture_id}.json"
-        p.write_text(rc.model_dump_json(indent=2) + "\n", encoding="utf-8")
-        written.append(p)
-        groups[rc.prompt_version or "unknown"].append((rc, e))
+        if e.run.split != "heldout":
+            p = fixtures_dir / f"{rc.fixture_id}.json"
+            p.write_text(rc.model_dump_json(indent=2) + "\n", encoding="utf-8")
+            written.append(p)
+        groups[(e.run.split or "dev", rc.prompt_version or "unknown")].append((rc, e))
     reports = []
     out_dir = reports_dir / "kl"
-    for pv, items in sorted(groups.items()):
+    for (split, pv), items in sorted(groups.items()):
         out_dir.mkdir(parents=True, exist_ok=True)
-        lines = [f"# Rejected claims - prompt_version {pv}", ""]
+        title = f"# Rejected claims - prompt_version {pv}"
+        if split == "heldout":
+            title += " - HELDOUT: never use in a prompt"
+        lines = [title, ""]
         by_type: dict[str, list] = defaultdict(list)
         for rc, e in items:
             by_type[rc.error_type].append((rc, e))
@@ -127,16 +158,25 @@ def export_errors(
             lines += [f"## {et} ({len(xs)})", ""]
             for rc, e in xs:
                 sub = f" / {rc.subtype}" if rc.subtype else ""
-                caught = "caught by verifier" if rc.auto_caught else "NOT caught automatically"
+                caught = (
+                    f"caught by {', '.join(rc.caught_codes)}"
+                    if rc.caught_codes
+                    else "NOT caught automatically"
+                )
                 lines.append(
                     f"- `{e.run.fixture_id}` claim {rc.claim_index}{sub} ({caught}): "
                     f"{rc.claim.text}" + (f" - {rc.note}" if rc.note else "")
                 )
             lines.append("")
-        p = out_dir / f"errors-{pv}.md"
+        name = f"errors-heldout-{pv}.md" if split == "heldout" else f"errors-{pv}.md"
+        p = out_dir / name
         p.write_text("\n".join(lines), encoding="utf-8")
         reports.append(p)
-    return {"fixtures": [str(p) for p in written], "reports": [str(p) for p in reports]}
+    return {
+        "fixtures": [str(p) for p in written],
+        "reports": [str(p) for p in reports],
+        "skipped_synthetic": skipped_synthetic,
+    }
 
 
 # ---- (b) pairs ----------------------------------------------------------------------------
@@ -159,43 +199,101 @@ class ItemView:
     previous_job: int | None = None
 
 
-REVIEW_KINDS = ("sugya", "sugya_summary")
+BUCKETS = (
+    "warnings",  # 0 K14/K15 warnings, queue_priority
+    "model_disagreement",  # 1 a shadow second-model output that differs
+    "weighty_relation",  # 2 rules_like / disputes / psak_not_accepted / girsa_error
+    "low_confidence",  # 3 confidence < kl_low_conf
+    "used_in_reviewed_run",  # 4 relied on by a run reviewed in the answers queue
+    "random",  # 5 a seeded random fraction of the rest
+)
 
 
-def item_queue(s: Session, cfg: EvalsConfig, seed: int = 0) -> list[int]:
-    """Current, not yet reviewed sugya / sugya_summary items, in review order: windows that
-    disagreed (queue_priority), then K-check contradictions, then low confidence, then a
-    seeded random sample of high-confidence items (to estimate the unseen error rate)."""
-    from rav_ai.db.models import KlItem
+def ordered_items(
+    s: Session, cfg: EvalsConfig, seed: int = 0, reviewed_item_ids: Iterable[int] = ()
+) -> list[tuple[int, str]]:
+    """Current, generated items in review order (design §7.4 / §11 KL-3), as (id, bucket).
+    An item is listed once, in its first bucket; a bucket without data is just empty."""
+    from rav_ai.db.models import KlItem, KlRelation
 
-    items = list(
-        s.scalars(
+    items = [
+        i
+        for i in s.scalars(
             select(KlItem)
-            .where(
-                KlItem.is_current.is_(True),
-                KlItem.status == "generated",
-                KlItem.kind.in_(REVIEW_KINDS),
-            )
+            .where(KlItem.is_current.is_(True), KlItem.status == "generated")
             .order_by(KlItem.id)
         )
-    )
+        if not (i.check_report or {}).get("shadow")
+    ]
+    keys = [i.item_key for i in items]
+    shadows: dict[str, list] = defaultdict(list)
+    if keys:
+        for sh in s.scalars(select(KlItem).where(KlItem.item_key.in_(keys))):
+            if (sh.check_report or {}).get("shadow"):
+                shadows[sh.item_key].append(sh.body)
+    weighty = set(cfg.kl_weighty)
+    ids = [i.id for i in items]
+    weighty_ids: set[int] = set()
+    if ids:
+        for f, t, rel in s.execute(
+            select(KlRelation.from_item_id, KlRelation.to_item_id, KlRelation.rel).where(
+                (KlRelation.from_item_id.in_(ids)) | (KlRelation.to_item_id.in_(ids))
+            )
+        ):
+            if rel in weighty:
+                weighty_ids.update((f, t))
+    reviewed = set(reviewed_item_ids)
+    warn_codes = set(cfg.kl_warning_codes)
 
-    def rank(i) -> tuple:
+    def bucket(i) -> int | None:
         cr = i.check_report or {}
-        if cr.get("queue_priority"):
-            return (0, i.confidence or 0.0, i.id)
-        if not cr.get("ok", True):
-            return (1, i.confidence or 0.0, i.id)
+        codes = {f.get("code") for f in cr.get("findings", []) if isinstance(f, dict)}
+        if cr.get("queue_priority") or codes & warn_codes:
+            return 0
+        if any(b != i.body for b in shadows.get(i.item_key, [])):
+            return 1
+        body = i.body or {}
+        if i.id in weighty_ids or body.get("claim_kind") in weighty or body.get("kind") in weighty:
+            return 2
         if i.confidence is None or i.confidence < cfg.kl_low_conf:
-            return (2, i.confidence or 0.0, i.id)
-        return (3, 0.0, i.id)
+            return 3
+        if i.id in reviewed:
+            return 4
+        return None
 
-    ranked = sorted(items, key=rank)
-    head = [i for i in ranked if rank(i)[0] < 3]
-    high = [i for i in ranked if rank(i)[0] == 3]
-    rng = random.Random(seed)
-    sample = rng.sample(high, min(cfg.kl_high_conf_sample, len(high)))
-    return [i.id for i in head] + sorted(i.id for i in sample)
+    ranked = [(bucket(i), i) for i in items]
+    head = sorted(
+        (
+            (b, i.confidence if i.confidence is not None else -1.0, i.id)
+            for b, i in ranked
+            if b is not None
+        )
+    )
+    rest = sorted(i.id for b, i in ranked if b is None)
+    k = math.ceil(cfg.kl_random_fraction * len(rest)) if rest else 0
+    sample = sorted(random.Random(seed).sample(rest, k))
+    return [(i, BUCKETS[b]) for b, _c, i in head] + [(i, BUCKETS[5]) for i in sample]
+
+
+def item_queue(
+    s: Session, cfg: EvalsConfig, seed: int = 0, reviewed_item_ids: Iterable[int] = ()
+) -> list[int]:
+    return [i for i, _b in ordered_items(s, cfg, seed, reviewed_item_ids)]
+
+
+def reviewed_run_item_ids(fixtures_dir: Path, store: RatingStore) -> set[int]:
+    """kl item ids that runs reviewed in the answers queue relied on (runs.knowledge_items)."""
+    rated = {e["run_id"] for e in store.events("answers") if e.get("run_id")}
+    if not rated:
+        return set()
+    runs, _ = load_fixtures(fixtures_dir)
+    out: set[int] = set()
+    for rr in runs:
+        if rr.fixture_id in rated:
+            for it in rr.output.knowledge_items:
+                if isinstance(it, dict) and it.get("tool") != "_meta" and it.get("item_id"):
+                    out.add(int(it["item_id"]))
+    return out
 
 
 def _raw_text(s: Session, segment_id: int, version_ids: list[int] | None):
@@ -316,17 +414,39 @@ def item_view(s: Session, item_id: int) -> ItemView | None:
     return v
 
 
+def _hidden_so_far(s: Session, it) -> set[str]:
+    from rav_ai.db.models import KlOverride
+
+    hidden = {str(x) for x in (it.body or {}).get("hidden_claims", [])}
+    for o in s.scalars(
+        select(KlOverride).where(KlOverride.target_key == it.item_key, KlOverride.action == "edit")
+    ):
+        hidden |= {str(x) for x in (o.corrected or {}).get("hidden_claims", [])}
+    return hidden
+
+
 def item_action(
-    s: Session, item_id: int, action: str, reviewer: str, *, claim_id: str = "", note: str = ""
+    s: Session,
+    item_id: int,
+    action: str,
+    reviewer: str,
+    *,
+    claim_id: str = "",
+    note: str = "",
+    error_type: str | None = None,
 ) -> dict[str, Any]:
-    """approve -> verified; reject -> rejected (human, no longer current); fix -> hide the
-    claim. Each is a kl_reviews row + a kl_overrides row (so a re-run cannot undo it)."""
+    """approve -> verified; reject -> rejected (human, no longer current); fix -> the claim is
+    hidden (an ``edit`` override with ``hidden_claims``), the item stays ``generated`` and
+    current - hiding one claim does not approve the others. Each action writes kl_reviews and
+    kl_overrides (so a re-run cannot undo it). The harness must read ``hidden_claims`` (KL-2)."""
     from rav_ai.db.models import KlItem, KlOverride, KlReview
 
     it = s.get(KlItem, item_id)
     if it is None:
         raise KeyError(item_id)
-    result: dict[str, Any] = {"item_id": it.id, "action": action}
+    tag = f"error_type={error_type}" if error_type else ""
+    rnote = "; ".join(x for x in (tag, note) if x)
+    result: dict[str, Any] = {"item_id": it.id, "action": action, "error_type": error_type}
     if action == "approve":
         s.add(
             KlOverride(
@@ -337,47 +457,36 @@ def item_action(
                 reviewer=reviewer,
             )
         )
-        s.add(KlReview(item_id=it.id, reviewer=reviewer, verdict="approve", note=note))
+        s.add(KlReview(item_id=it.id, reviewer=reviewer, verdict="approve", note=rnote or None))
         it.status = "verified"
     elif action == "reject":
-        s.add(KlOverride(target_key=it.item_key, action="reject", note=note, reviewer=reviewer))
-        s.add(KlReview(item_id=it.id, reviewer=reviewer, verdict="reject", note=note))
+        s.add(KlOverride(target_key=it.item_key, action="reject", note=rnote, reviewer=reviewer))
+        s.add(KlReview(item_id=it.id, reviewer=reviewer, verdict="reject", note=rnote or None))
         it.status, it.rejected_by, it.is_current = "rejected", "human", False
     elif action == "fix":
-        hidden = sorted({*map(str, (it.body or {}).get("hidden_claims", [])), str(claim_id)})
-        o = KlOverride(
-            target_key=it.item_key,
-            action="edit",
-            corrected={"hidden_claims": hidden},
-            note=note,
-            reviewer=reviewer,
+        if not claim_id:
+            raise ValueError("fix needs the claim_id to hide")
+        hidden = sorted(_hidden_so_far(s, it) | {str(claim_id)})
+        s.add(
+            KlOverride(
+                target_key=it.item_key,
+                action="edit",
+                corrected={"hidden_claims": hidden},
+                note=rnote,
+                reviewer=reviewer,
+            )
         )
-        s.add(o)
         s.add(
             KlReview(
                 item_id=it.id,
                 reviewer=reviewer,
                 verdict="edit",
-                note=f"hide claim {claim_id}" + (f": {note}" if note else ""),
+                note="; ".join(x for x in (f"hide claim {claim_id}", rnote) if x),
             )
         )
-        s.flush()
         result["hidden_claims"] = hidden
-        result["applied"] = _apply_edit(s, it)
     else:
         raise ValueError(f"unknown action {action!r}")
     s.commit()
     result["status"] = it.status
     return result
-
-
-def _apply_edit(s: Session, it) -> bool:
-    """Apply the edit now through the knowledge layer's own override logic (a new verified
-    human version, made current). Without rav_knowledge installed the override still stands
-    and is applied on the next run."""
-    try:
-        from rav_knowledge.runner import apply_overrides
-    except ImportError:  # pragma: no cover - rav_knowledge is in the workspace
-        return False
-    apply_overrides(s, [it.id])
-    return True

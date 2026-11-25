@@ -3,6 +3,7 @@ listening on 127.0.0.1 only. Ratings are files in the repo (``golden/kl/ratings`
 
 from __future__ import annotations
 
+import json
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -10,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
@@ -22,6 +24,7 @@ from . import queues
 
 TEMPLATES = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 ALLOWED_HOST = "127.0.0.1"
+TRUSTED_HOSTS = ["127.0.0.1", "localhost"]  # Host header check (DNS rebinding)
 
 
 @dataclass
@@ -34,18 +37,34 @@ class ReviewContext:
     reports_dir: Path = REPORTS_DIR
     engine: Any = None  # SQLAlchemy engine: KL items queue + pair texts (optional)
     texts: dict[str, str] = field(default_factory=dict)  # pair texts without a database
+    include_synthetic: bool = False  # show synthetic seed runs in the answers queue
     _answers: list | None = None
 
     def answers(self) -> list[queues.AnswerEntry]:
         if self._answers is None:
-            self._answers = queues.answer_queue(self.fixtures_dir, self.cfg)
+            self._answers = queues.answer_queue(
+                self.fixtures_dir, self.cfg, include_synthetic=self.include_synthetic
+            )
         return self._answers
+
+    def has_table(self, name: str) -> bool:
+        if self.engine is None:
+            return False
+        from sqlalchemy import inspect
+
+        return name in inspect(self.engine).get_table_names()
+
+    def recheck_ids(self) -> list[str]:
+        p = self.store.root / f"{self.rater_id}.recheck.json"
+        if not p.exists():
+            return []
+        return list(json.loads(p.read_text(encoding="utf-8")).get("pair_ids", []))
 
     def text_for(self, ref: str) -> str | None:
         if ref in self.texts:
             return self.texts[ref]
-        if self.engine is None:
-            return None
+        if not (self.has_table("segment_text") and self.has_table("segments")):
+            return None  # no database, or one that was never migrated
         from sqlalchemy import text
 
         with self.engine.connect() as c:
@@ -94,6 +113,7 @@ class PairRating(BaseModel):
 class ItemAction(BaseModel):
     action: str = Field(pattern="^(approve|reject|fix)$")
     claim_id: str = ""
+    error_type: str | None = None
     note: str = ""
     seconds: float | None = None
 
@@ -105,6 +125,7 @@ def _minutes(events: list[dict[str, Any]]) -> float | None:
 
 def create_app(ctx: ReviewContext) -> FastAPI:
     app = FastAPI(title="rav-evals review")
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=TRUSTED_HOSTS)
     app.state.ctx = ctx
 
     def render(request: Request, name: str, **kw) -> HTMLResponse:
@@ -114,23 +135,16 @@ def create_app(ctx: ReviewContext) -> FastAPI:
 
     def progress() -> dict[str, Any]:
         ans_events = list(ctx.store.events("answers", ctx.rater_id))
-        claims = [
-            {**e, "claim_type": "interpretation"} for e in ans_events if e.get("kind") == "claim"
-        ]
+        claims = [e for e in ans_events if e.get("kind") == "claim"]
         units = {e.run.fixture_id: e for e in ctx.answers()}
-        interp = [
-            c
-            for c in claims
-            if c["run_id"] in units
-            and units[c["run_id"]].run.output.answer.claims[c["claim_index"]].type.value
-            == "interpretation"
-        ]
         mis = misattribution_report(
-            interp, ctx.cfg.misattribution_max_rate, ctx.cfg.misattribution_ci_level
+            claims, ctx.cfg.misattribution_max_rate, ctx.cfg.misattribution_ci_level
         )
         pairs = queues.pair_queue(ctx.pairs_path)
         rated_pairs = {k for (_r, k) in ctx.store.latest("pairs", "pair_id", ctx.rater_id)}
         item_events = list(ctx.store.events("items", ctx.rater_id))
+        gate_n = item_events[: ctx.cfg.item_gate_sample]
+        severe = sum(e.get("error_type") in ctx.cfg.item_severe_error_types for e in gate_n)
         return {
             "answers": {
                 "runs": len(units),
@@ -149,18 +163,25 @@ def create_app(ctx: ReviewContext) -> FastAPI:
                 "reviewed": len(item_events),
                 "queue": len(_item_ids()),
                 "minutes_per_item": _minutes(item_events),
+                "gate": {
+                    "n": len(gate_n),
+                    "needed": ctx.cfg.item_gate_sample,
+                    "severe": severe,
+                    "severe_rate": severe / len(gate_n) if gate_n else None,
+                    "max_rate": ctx.cfg.item_gate_max_severe_rate,
+                },
             },
         }
 
-    def _item_ids() -> list[int]:
-        if ctx.engine is None:
+    def _ordered_items() -> list[tuple[int, str]]:
+        if not ctx.has_table("kl_items"):
             return []
-        from sqlalchemy import inspect
-
-        if "kl_items" not in inspect(ctx.engine).get_table_names():
-            return []
+        reviewed = queues.reviewed_run_item_ids(ctx.fixtures_dir, ctx.store)
         with ctx.session() as s:
-            return queues.item_queue(s, ctx.cfg)
+            return queues.ordered_items(s, ctx.cfg, reviewed_item_ids=reviewed)
+
+    def _item_ids() -> list[int]:
+        return [i for i, _b in _ordered_items()]
 
     @app.get("/", response_class=HTMLResponse)
     def index(request: Request):
@@ -220,9 +241,7 @@ def create_app(ctx: ReviewContext) -> FastAPI:
         )
         exported = None
         if r.verdict != "ok":
-            exported = queues.export_errors(
-                ctx.answers(), ctx.store, ctx.fixtures_dir, ctx.reports_dir, ctx.cfg
-            )
+            exported = queues.export_errors(ctx.fixtures_dir, ctx.store, ctx.reports_dir, ctx.cfg)
         return {"saved": rec, "exported": exported}
 
     @app.post("/api/answers/grade")
@@ -242,23 +261,33 @@ def create_app(ctx: ReviewContext) -> FastAPI:
 
     @app.post("/api/export")
     def export():
-        return queues.export_errors(
-            ctx.answers(), ctx.store, ctx.fixtures_dir, ctx.reports_dir, ctx.cfg
-        )
+        return queues.export_errors(ctx.fixtures_dir, ctx.store, ctx.reports_dir, ctx.cfg)
 
     # ---- (b) pairs ----------------------------------------------------------------------
 
     @app.get("/pairs", response_class=HTMLResponse)
-    def pairs(request: Request, i: int = 0):
+    def pairs(request: Request, i: int = 0, recheck: int = 0):
         q = queues.pair_queue(ctx.pairs_path)
+        if recheck:
+            wanted = set(ctx.recheck_ids())
+            q = [p for p in q if p["pair_id"] in wanted]
         if not q:
-            return render(
-                request, "empty.html", queue="pairs", why="no pairs file (rav-evals pairs-sample)"
+            why = (
+                "no pairs to recheck (rav-evals pairs-recheck)"
+                if recheck
+                else "no pairs file (rav-evals pairs-sample)"
             )
+            return render(request, "empty.html", queue="pairs", why=why)
         i = max(0, min(i, len(q) - 1))
         p = q[i]
         left, right = (p["b_ref"], p["a_ref"]) if p["swapped"] else (p["a_ref"], p["b_ref"])
-        prev = ctx.store.latest("pairs", "pair_id", ctx.rater_id).get((ctx.rater_id, p["pair_id"]))
+        prev = (
+            None  # blind: the earlier rating is never shown in recheck mode
+            if recheck
+            else ctx.store.latest("pairs", "pair_id", ctx.rater_id).get(
+                (ctx.rater_id, p["pair_id"])
+            )
+        )
         return render(
             request,
             "pairs.html",
@@ -272,6 +301,7 @@ def create_app(ctx: ReviewContext) -> FastAPI:
             labels=LABELS,
             directional=sorted(DIRECTIONAL),
             prev=prev,
+            recheck=bool(recheck),
             t0=time.time(),
         )
 
@@ -282,6 +312,8 @@ def create_app(ctx: ReviewContext) -> FastAPI:
         known = {p["pair_id"] for p in queues.pair_queue(ctx.pairs_path)}
         if r.pair_id not in known:
             raise HTTPException(404, f"unknown pair {r.pair_id}")
+        if r.recheck and r.pair_id not in set(ctx.recheck_ids()):
+            raise HTTPException(422, "pair is not in the recheck set (rav-evals pairs-recheck)")
         if r.label in DIRECTIONAL and r.direction not in ("ab", "ba"):
             raise HTTPException(422, "directional label needs direction ab|ba")
         data = r.model_dump()
@@ -293,26 +325,44 @@ def create_app(ctx: ReviewContext) -> FastAPI:
 
     @app.get("/items", response_class=HTMLResponse)
     def items(request: Request, i: int = 0, diff: int = 0):
-        ids = _item_ids()
-        if not ids:
+        ordered = _ordered_items()
+        if not ordered:
             return render(
                 request, "empty.html", queue="items", why="no knowledge-layer items to review yet"
             )
-        i = max(0, min(i, len(ids) - 1))
+        i = max(0, min(i, len(ordered) - 1))
         with ctx.session() as s:
-            v = queues.item_view(s, ids[i])
+            v = queues.item_view(s, ordered[i][0])
             return render(
-                request, "items.html", v=v, i=i, n=len(ids), show_diff=bool(diff), t0=time.time()
+                request,
+                "items.html",
+                v=v,
+                i=i,
+                n=len(ordered),
+                bucket=ordered[i][1],
+                error_types=ctx.cfg.item_error_types,
+                show_diff=bool(diff),
+                t0=time.time(),
             )
 
     @app.post("/api/items/{item_id}/action")
     def item_action(item_id: int, a: ItemAction):
         if ctx.engine is None:
             raise HTTPException(409, "no database configured")
+        if a.error_type is not None and a.error_type not in ctx.cfg.item_error_types:
+            raise HTTPException(422, f"error_type must be one of {ctx.cfg.item_error_types}")
+        if a.action in ("reject", "fix") and a.error_type is None:
+            raise HTTPException(422, "reject / fix need an error_type (1-9, 0, t)")
         with ctx.session() as s:
             try:
                 res = queues.item_action(
-                    s, item_id, a.action, ctx.rater_id, claim_id=a.claim_id, note=a.note
+                    s,
+                    item_id,
+                    a.action,
+                    ctx.rater_id,
+                    claim_id=a.claim_id,
+                    note=a.note,
+                    error_type=a.error_type,
                 )
             except KeyError as e:
                 raise HTTPException(404, f"unknown item {item_id}") from e

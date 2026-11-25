@@ -5,17 +5,27 @@ V5-V10 (KL-3, knowledge layer; a *measurement*, mirroring the harness's run-time
 
 - V5 ``secondary_as_primary``: a citation marked ``source_role="primary"`` whose work is a lens
   (``kl_sources.role='lens'``).
-- V6 ``candidate_as_proof``: every relation of a claim is a candidate link and none of its
-  endpoints was cited.
-- V7 ``witness_missing``: a textual-variant / scribal-error claim in the system's own voice
-  without a ``witness_id`` (``witness_unknown`` if the id is not in ``kl_witnesses``).
+- V6 ``candidate_as_proof``: for EVERY candidate relation of a claim, both endpoints must have
+  been retrieved and cited in that claim (other relations do not excuse it).
+  ``relation_unknown``: the relation's row does not exist. Candidacy of an ``edges`` row comes
+  from its stored origin only (fail closed: anything but ``human``); ``kl_relations`` /
+  ``kl_links`` are not links - their ``evidence_origin`` (llm < judge < human) is a separate
+  metric. ``rel.candidate=True`` from the answer can only add a candidate.
+- V7 ``witness_missing``: a textual-variant / scribal-error claim without a ``witness_id``,
+  unless the claim attributes it explicitly to another holder (a citation with an
+  ``attribution`` from a work other than the one said to be corrupt); ``witness_unknown`` if
+  the id is not in ``kl_witnesses``.
 - V8 ``coverage_notice_missing``: a core work not checked for the scope (``kl_coverage``) that
   the answer does not list in ``unchecked_core_books``; ``coverage_notice_wrong`` for a listed
-  core work that *was* checked.
+  core work that *was* checked; ``scope_mismatch`` when the answer calls itself out_of_scope for
+  an in-scope question (V8 then runs as usual). The scope comes from the question / run; for an
+  out-of-scope question V8 requires the out-of-scope notice (``out_of_scope_notice_missing``).
 - V9 ``kibalnu_undocumented``: acceptance / custom language with no citation.
 - V10 ``sa_decisive_phrasing``: decisive phrasing about the Shulchan Arukh in the system's voice.
 
-A check that needs a missing ``kl_*`` table is skipped and listed in ``skipped``.
+A check that needs a missing ``kl_*`` table (or no knowledge lookup at all) is skipped and listed
+in ``skipped``; when there was something to check, the check id also goes to ``skipped_checks``
+(``regress`` treats a skipped hard gate as a failure).
 """
 
 from __future__ import annotations
@@ -85,7 +95,9 @@ class Failure(BaseModel):
 class VerificationReport(BaseModel):
     failures: list[Failure] = []
     skipped: list[str] = []  # e.g. "V4: claim 2 citation 0 (V4 not implemented)"
+    skipped_checks: list[str] = []  # checks skipped although there was content to check
     citations_checked: int = 0
+    kl_relation_origins: dict[str, int] = {}  # evidence_origin of kl_* relations (metric)
 
     @property
     def passed(self) -> bool:
@@ -127,16 +139,23 @@ def verify_answer(
     knowledge: KnowledgeLookup | None = None,
     scope_keys: Iterable[str] = (),
     markers: Markers | None = None,
+    question_in_scope: bool | None = None,
 ) -> VerificationReport:
+    retrieved = list(retrieved_refs)
     report = _verify_citations(
-        answer, retrieved_refs, store, normalize=normalize, attribution_checker=attribution_checker
+        answer, retrieved, store, normalize=normalize, attribution_checker=attribution_checker
     )
+    keys = list(scope_keys)
     verify_knowledge(
         answer,
         report,
         knowledge=knowledge,
-        scope_keys=list(scope_keys),
+        scope_keys=keys,
         markers=markers or load_config().markers,
+        retrieved_refs=retrieved,
+        question_in_scope=(True if keys else None)
+        if question_in_scope is None
+        else question_in_scope,
     )
     return report
 
@@ -273,18 +292,54 @@ def is_girsa_claim(claim: Claim, markers: Markers) -> bool:
     )
 
 
+def _work(ref: str, knowledge: KnowledgeLookup | None) -> str:
+    w = knowledge.work_of(ref) if knowledge is not None else None
+    return w or re.sub(r"\s+\S*\d\S*$", "", ref).strip()
+
+
+def attributed_to_other(claim: Claim, knowledge: KnowledgeLookup | None) -> bool:
+    """The variant / error is explicitly reported in someone else's name: a citation with an
+    attribution, from a work other than every work the claim quotes unattributed (the text
+    said to be corrupt)."""
+    targets = {
+        _work(c.ref, knowledge) for c in claim.citations if not (c.attribution or "").strip()
+    }
+    return any(
+        (c.attribution or "").strip() and _work(c.ref, knowledge) not in targets
+        for c in claim.citations
+    )
+
+
+def known_witnesses(claim: Claim, knowledge: KnowledgeLookup | None) -> list[int]:
+    """witness ids of the claim that exist in kl_witnesses (none without a lookup)."""
+    ids = [c.witness_id for c in claim.citations if c.witness_id is not None]
+    if knowledge is None or not knowledge.has_table("kl_witnesses"):
+        return []
+    return [w for w in ids if knowledge.witness_exists(w)]
+
+
 def relation_is_candidate(rel, knowledge: KnowledgeLookup | None) -> bool | None:
-    """True/False, or None when the relation's table is not available (check skipped)."""
-    if rel.candidate or (rel.evidence_origin and is_candidate({"origin": rel.evidence_origin})):
-        return True
-    if knowledge is None:
-        return False
-    if not knowledge.has_table(rel.table):
+    """True / False, or None when it cannot be decided (no lookup, table missing) -> skipped.
+    Raises LookupError when the row does not exist (``relation_unknown``)."""
+    if knowledge is None or not knowledge.has_table(rel.table):
         return None
     if rel.table == "edges":
         e = knowledge.edge(rel.id)
-        return bool(e and is_candidate(e))
-    return False
+        if e is None:
+            raise LookupError(rel.id)
+        return rel.candidate or is_candidate(e)  # the answer's own origin is not trusted
+    if not knowledge.kl_row_exists(rel.table, rel.id):
+        raise LookupError(rel.id)
+    return bool(rel.candidate)
+
+
+def _endpoints(rel, knowledge: KnowledgeLookup | None) -> list[str]:
+    if rel.table == "edges" and knowledge is not None:
+        e = knowledge.edge(rel.id) or {}
+        ends = [r for r in (e.get("a_ref"), e.get("b_ref")) if r]
+        if ends:
+            return ends
+    return list(rel.evidence_refs)
 
 
 def verify_knowledge(
@@ -294,13 +349,25 @@ def verify_knowledge(
     knowledge: KnowledgeLookup | None,
     scope_keys: list[str],
     markers: Markers,
+    retrieved_refs: Iterable[str] = (),
+    question_in_scope: bool | None = True,
 ) -> VerificationReport:
+    """``question_in_scope``: True (the question/run has scope keys), False (the question is
+    out of scope), None (no scope information: V8 is skipped)."""
+    retrieved = set(retrieved_refs)
+
     def fail(check: str, code: str, reason: str, **where) -> None:
         report.failures.append(Failure(check=check, code=code, reason=reason, **where))
 
+    def skip(check: str, why: str, *, hard: bool) -> None:
+        report.skipped.append(f"{check}: {why}")
+        if hard and check not in report.skipped_checks:
+            report.skipped_checks.append(check)
+
+    has_citations = any(c.citations for c in answer.claims)
     kl_sources = knowledge is not None and knowledge.has_table("kl_sources")
     if not kl_sources:
-        report.skipped.append("V5: kl_sources table not available")
+        skip("V5", "kl_sources table not available", hard=has_citations)
     witnesses = knowledge is not None and knowledge.has_table("kl_witnesses")
     unregistered: set[str] = set()
 
@@ -321,30 +388,46 @@ def verify_knowledge(
                         ref=cit.ref,
                     )
 
-        # V6: only candidate links, and their endpoints never cited
-        if claim.relations:
-            verdicts = [relation_is_candidate(r, knowledge) for r in claim.relations]
-            if any(v is None for v in verdicts):
-                report.skipped.append(f"V6: claim {ci} (relation table not available)")
-            elif all(verdicts):
-                cited = {c.ref for c in claim.citations}
-                ends = {ref for r in claim.relations for ref in r.evidence_refs}
-                if not (cited & ends):
-                    fail(
-                        "V6",
-                        "candidate_as_proof",
-                        "every relation is a candidate link and no endpoint was cited",
-                        claim_index=ci,
-                    )
+        # V6: every candidate relation needs BOTH endpoints retrieved and cited in this claim
+        cited = {c.ref for c in claim.citations}
+        for ri, rel in enumerate(claim.relations):
+            try:
+                cand = relation_is_candidate(rel, knowledge)
+            except LookupError:
+                fail(
+                    "V6",
+                    "relation_unknown",
+                    f"{rel.table} id {rel.id} does not exist",
+                    claim_index=ci,
+                )
+                continue
+            if rel.table != "edges":
+                o = rel.evidence_origin or "unknown"
+                report.kl_relation_origins[o] = report.kl_relation_origins.get(o, 0) + 1
+            if cand is None:
+                skip("V6", f"claim {ci} relation {ri} ({rel.table} not available)", hard=True)
+                continue
+            if not cand:
+                continue
+            ends = _endpoints(rel, knowledge)
+            missing = [r for r in ends if r not in cited or r not in retrieved]
+            if len(ends) < 2 or missing:
+                fail(
+                    "V6",
+                    "candidate_as_proof",
+                    f"candidate {rel.table} {rel.id}: endpoints not both retrieved and cited "
+                    f"(missing {missing or 'endpoint refs'})",
+                    claim_index=ci,
+                )
 
-        # V7: textual variant / scribal error in the system's voice needs a witness
-        if is_girsa_claim(claim, markers) and system_voice(claim):
+        # V7: a variant / scribal-error claim needs a known witness unless attributed to another
+        if is_girsa_claim(claim, markers) and not attributed_to_other(claim, knowledge):
             ids = [c.witness_id for c in claim.citations if c.witness_id is not None]
             if not ids:
                 fail(
                     "V7",
                     "witness_missing",
-                    "variant / scribal-error claim in the system's voice without witness_id",
+                    "variant / scribal-error claim without witness_id (and not attributed)",
                     claim_index=ci,
                 )
             elif witnesses:
@@ -356,8 +439,8 @@ def verify_knowledge(
                             f"witness_id {w} is not in kl_witnesses",
                             claim_index=ci,
                         )
-            elif knowledge is not None:
-                report.skipped.append(f"V7: claim {ci} witness existence (no kl_witnesses)")
+            else:
+                skip("V7", f"claim {ci} witness existence (no kl_witnesses)", hard=True)
 
         # V9: "we have received" / custom language must be documented
         if has_marker(claim.text, markers.kibalnu) and not claim.citations:
@@ -382,13 +465,25 @@ def verify_knowledge(
                 )
 
     if unregistered:
-        report.skipped.append(f"V5: {len(unregistered)} cited ref(s) of unregistered works")
+        skip("V5", f"{len(unregistered)} cited ref(s) of unregistered works", hard=True)
 
-    # V8: coverage notice
-    scope = answer.scope
-    if scope == "out_of_scope":
-        report.skipped.append("V8: answer is out of scope")
-    elif not scope_keys:
+    # V8: the scope is the question's / run's, never what the answer declares about itself
+    if question_in_scope is None:
+        report.skipped.append("V8: no scope information for this question / run")
+        return report
+    if question_in_scope is False:
+        head = "\n".join([answer.disclaimer, *(c.text for c in answer.claims[:1])])
+        if not has_marker(head, markers.out_of_scope_notice):
+            fail(
+                "V8",
+                "out_of_scope_notice_missing",
+                "out-of-scope question: the answer must open with the out-of-scope notice",
+            )
+        report.skipped.append("V8: coverage not checked (question out of scope)")
+        return report
+    if answer.scope == "out_of_scope":
+        fail("V8", "scope_mismatch", "answer says out_of_scope for an in-scope question")
+    if not scope_keys:
         report.skipped.append("V8: no scope keys for this run")
     elif knowledge is None or not (
         knowledge.has_table("kl_coverage") and knowledge.has_table("kl_sources")

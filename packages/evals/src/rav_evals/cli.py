@@ -42,6 +42,7 @@ SUBCOMMANDS = (
     "golden-status",
     "pairs-sample",
     "pairs-kappa",
+    "pairs-recheck",
     "attribution",
     "review",
 )
@@ -63,6 +64,7 @@ def main(argv: list[str] | None = None) -> int:
         "golden-status": cmd_golden_status,
         "pairs-sample": cmd_pairs_sample,
         "pairs-kappa": cmd_pairs_kappa,
+        "pairs-recheck": cmd_pairs_recheck,
         "attribution": cmd_attribution,
         "review": cmd_review,
     }[cmd](rest)
@@ -137,13 +139,17 @@ def cmd_regress(argv: list[str]) -> int:
     res = regress(Path(a.fixtures), Path(a.baseline))
     if a.update:
         Path(a.baseline).parent.mkdir(parents=True, exist_ok=True)
-        Path(a.baseline).write_text(_dump(baseline_from(res["metrics"])) + "\n", encoding="utf-8")
+        Path(a.baseline).write_text(_dump(baseline_from(res)) + "\n", encoding="utf-8")
         print(f"baseline written: {a.baseline}")
         res = regress(Path(a.fixtures), Path(a.baseline))
     if a.out:
         bundle = {"label": "regress", "knowledge": "recorded", "metrics": res["metrics"]}
         Path(a.out).write_text(_dump(bundle), encoding="utf-8")
-    print(f"{res['fixtures']} recorded runs, {res['rejected_fixtures']} rejected claims")
+    print(
+        f"{res['fixtures']} recorded runs ({res['synthetic_fixtures']} synthetic), "
+        f"{res['rejected_fixtures']} rejected claims, "
+        f"skipped hard gates: {res['metrics']['skipped_hard']}"
+    )
     for f in res["failures"]:
         print(f"FAIL {f}")
     print("PASS" if res["passed"] else "FAILED")
@@ -251,12 +257,46 @@ def cmd_pairs_kappa(argv: list[str]) -> int:
         seed=a.seed,
         self_min=cfg.self_agreement_min,
         recheck_days=cfg.self_recheck_days,
+        recheck_fraction=cfg.self_recheck_fraction,
+        min_n=cfg.self_agreement_min_n,
     )
     out = Path(a.out_dir)
     out.mkdir(parents=True, exist_ok=True)
     (out / "pairs-kappa.json").write_text(_dump(rep), encoding="utf-8")
     (out / "pairs-kappa.md").write_text(kappa_markdown(rep), encoding="utf-8")
     print(kappa_markdown(rep))
+    return 0
+
+
+def recheck_path(rater_id: str) -> Path:
+    return RATINGS_DIR / f"{rater_id}.recheck.json"
+
+
+def cmd_pairs_recheck(argv: list[str]) -> int:
+    cfg = load_config()
+    p = argparse.ArgumentParser(prog="rav-evals pairs-recheck")
+    p.add_argument("--rater", default="yair")
+    p.add_argument("--pairs", default=str(KL_GOLDEN_DIR / "pairs.draft.jsonl"))
+    p.add_argument("--seed", type=int, default=cfg.pairs_seed)
+    a = p.parse_args(argv)
+    from datetime import UTC, datetime
+
+    from .pairs import read_jsonl, recheck_candidates
+    from .ratings import RatingStore, check_rater
+
+    ids = recheck_candidates(
+        read_jsonl(Path(a.pairs)),
+        RatingStore().events("pairs"),
+        check_rater(a.rater),
+        now=datetime.now(UTC),
+        days=cfg.self_recheck_days,
+        fraction=cfg.self_recheck_fraction,
+        seed=a.seed,
+    )
+    out = recheck_path(a.rater)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(_dump({"rater_id": a.rater, "pair_ids": ids}) + "\n", encoding="utf-8")
+    print(f"{len(ids)} pairs to recheck blind -> {out}; open /pairs?recheck=1 in the review tool")
     return 0
 
 

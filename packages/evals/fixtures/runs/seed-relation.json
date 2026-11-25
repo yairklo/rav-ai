@@ -57,6 +57,13 @@
               "attribution": null,
               "source_role": "primary",
               "witness_id": null
+            },
+            {
+              "ref": "Seed Gemara 1a:2",
+              "quoted_text": "שורה שנייה של טקסט",
+              "attribution": null,
+              "source_role": "primary",
+              "witness_id": null
             }
           ],
           "flagged_as_system": false,
@@ -72,6 +79,14 @@
                 "Seed Gemara 1a:1",
                 "Seed Gemara 1a:2"
               ]
+            },
+            {
+              "table": "kl_relations",
+              "id": 31,
+              "rel": "supports",
+              "evidence_origin": "llm",
+              "candidate": false,
+              "evidence_refs": []
             }
           ],
           "flags": []
@@ -92,14 +107,14 @@
     ],
     "model": "seed",
     "tool_calls": [],
-    "prompt_version": "seed-v0",
-    "prompt_hash": null,
     "knowledge": "base",
     "scope_keys": [
       "Seed 1a-2b"
     ],
-    "knowledge_items": [],
-    "cost_usd": 0.0
+    "cost_usd": 0.0,
+    "prompt_version": "seed-v0",
+    "prompt_hash": null,
+    "knowledge_items": []
   },
   "sources": {
     "Seed Gemara 1a:1": "זהו טקסט מקור לדוגמה בגמרא הראשונה ואין בו תוכן הלכתי",
@@ -112,7 +127,9 @@
       "kl_sources",
       "kl_coverage",
       "kl_witnesses",
-      "edges"
+      "edges",
+      "kl_relations",
+      "kl_links"
     ],
     "ref_work": {
       "Seed Gemara 1a:1": "Seed Gemara",
@@ -160,11 +177,18 @@
     "edges": {
       "901": {
         "origin": "sefaria",
-        "edge_type": "mesorat hashas"
+        "edge_type": "mesorat hashas",
+        "a_ref": "Seed Gemara 1a:1",
+        "b_ref": "Seed Gemara 1a:2"
       }
     },
+    "kl_relations": [
+      31
+    ],
+    "kl_links": [],
     "witnesses": [
       7
     ]
-  }
+  },
+  "split": "dev"
 }

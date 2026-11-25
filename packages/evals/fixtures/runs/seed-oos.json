@@ -9,25 +9,11 @@
     "difficulty": "easy",
     "required_refs": [],
     "required_sides": [],
-    "rubric": [
-      {
-        "id": "oos",
-        "description": "scope",
-        "kind": "scope_is",
-        "ref": null,
-        "terms": [],
-        "claim_types": [],
-        "scope": "out_of_scope",
-        "flags": [],
-        "gate": true
-      }
-    ],
+    "rubric": [],
     "status": "reviewed",
     "notes": "synthetic seed fixture (neutral placeholder text, not halakhic content)",
     "split": "dev",
-    "scope_keys": [
-      "Seed 1a-2b"
-    ],
+    "scope_keys": [],
     "sycophancy": null
   },
   "transcript": [
@@ -60,16 +46,41 @@
     "answer": {
       "claims": [
         {
+          "type": "quote",
+          "text": "לשון המקור",
+          "citations": [
+            {
+              "ref": "Seed Gemara 1a:1",
+              "quoted_text": "זהו טקסט מקור לדוגמה",
+              "attribution": null,
+              "source_role": "primary",
+              "witness_id": null
+            }
+          ],
+          "flagged_as_system": false,
+          "kl_item_ids": [],
+          "relations": [],
+          "flags": []
+        },
+        {
           "type": "system_conclusion",
-          "text": "השאלה מחוץ לפרוסה שנקלטה, ואין לי מקורות לענות עליה",
-          "citations": [],
+          "text": "מסקנת המערכת על פי המקור שנקרא",
+          "citations": [
+            {
+              "ref": "Seed Gemara 1a:1",
+              "quoted_text": "זהו טקסט מקור לדוגמה",
+              "attribution": null,
+              "source_role": "primary",
+              "witness_id": null
+            }
+          ],
           "flagged_as_system": true,
           "kl_item_ids": [],
           "relations": [],
           "flags": []
         }
       ],
-      "disclaimer": "זו דעת המערכת על פי המקורות שנקראו, ואינה פסק הלכה למעשה.",
+      "disclaimer": "שאלה זו מחוץ להיקף שכבת הידע שנבדקה; התשובה לא עברה אימות שכבת ידע. זו דעת המערכת על פי המקורות שנקראו, ואינה פסק הלכה למעשה.",
       "scope": "out_of_scope",
       "unchecked_core_books": [],
       "is_psak": false
@@ -82,14 +93,12 @@
     ],
     "model": "seed",
     "tool_calls": [],
+    "knowledge": "base",
+    "scope_keys": [],
+    "cost_usd": 0.0,
     "prompt_version": "seed-v0",
     "prompt_hash": null,
-    "knowledge": "base",
-    "scope_keys": [
-      "Seed 1a-2b"
-    ],
-    "knowledge_items": [],
-    "cost_usd": 0.0
+    "knowledge_items": []
   },
   "sources": {
     "Seed Gemara 1a:1": "זהו טקסט מקור לדוגמה בגמרא הראשונה ואין בו תוכן הלכתי",
@@ -102,7 +111,9 @@
       "kl_sources",
       "kl_coverage",
       "kl_witnesses",
-      "edges"
+      "edges",
+      "kl_relations",
+      "kl_links"
     ],
     "ref_work": {
       "Seed Gemara 1a:1": "Seed Gemara",
@@ -150,11 +161,18 @@
     "edges": {
       "901": {
         "origin": "sefaria",
-        "edge_type": "mesorat hashas"
+        "edge_type": "mesorat hashas",
+        "a_ref": "Seed Gemara 1a:1",
+        "b_ref": "Seed Gemara 1a:2"
       }
     },
+    "kl_relations": [
+      31
+    ],
+    "kl_links": [],
     "witnesses": [
       7
     ]
-  }
+  },
+  "split": "dev"
 }

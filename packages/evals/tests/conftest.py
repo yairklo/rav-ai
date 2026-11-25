@@ -156,7 +156,7 @@ def corpus(pg_engine):
 def kl_corpus(pg_engine):
     """Seed for V5-V10 on Postgres: a primary work, a lens work and a core code, with
     kl_sources, kl_coverage, a witness and a Sefaria edge."""
-    from rav_ai.db.models import Edge, KlCoverage, KlSource, KlWitness
+    from rav_ai.db.models import Edge, KlCoverage, KlItem, KlRelation, KlSource, KlWitness
 
     with Session(pg_engine) as s:
         snap = Snapshot(source="sefaria", export_label="fixture-kl", status="complete")
@@ -226,5 +226,22 @@ def kl_corpus(pg_engine):
                 ),
             ]
         )
+        # fail-closed origins: heuristic / llm / unknown are candidates, human is not
+        for eid, origin in ((778, "heuristic"), (779, "llm"), (780, "weird"), (782, "human")):
+            s.add(
+                Edge(
+                    id=eid,
+                    segment_a_id=segs["Gem 1:1"].id,
+                    segment_b_id=segs["Codes 1:1"].id,
+                    edge_type="",
+                    origin=origin,
+                    snapshot_id=snap.id,
+                )
+            )
+        a = KlItem(kind="issue", item_key="issue:a", scope_key="Gem 1", body={}, input_hash="ha")
+        b = KlItem(kind="issue", item_key="issue:b", scope_key="Gem 1", body={}, input_hash="hb")
+        s.add_all([a, b])
+        s.flush()
+        s.add(KlRelation(id=4, from_item_id=a.id, to_item_id=b.id, rel="supports"))
         s.commit()
     return pg_engine

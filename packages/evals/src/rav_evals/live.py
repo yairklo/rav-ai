@@ -11,6 +11,7 @@ becomes a regression case that ``rav-evals regress`` replays without a key.
 from __future__ import annotations
 
 import json
+import traceback
 from pathlib import Path
 from typing import Any
 
@@ -18,7 +19,7 @@ from .config import EvalsConfig, load_config
 from .golden import GoldenQuestion, GoldenSet
 from .kl_lookup import PostgresKnowledgeLookup
 from .kl_metrics import RecordedRun, compute_metrics, evaluate_question
-from .runner import RunOutput
+from .runner import QuestionResult, RunOutput
 
 
 def _harness_answer_fn(session, knowledge: str, model: str | None, sink: dict[str, Any]):
@@ -60,6 +61,44 @@ def _harness_answer_fn(session, knowledge: str, model: str | None, sink: dict[st
     return answer_fn
 
 
+def evaluate_answers(
+    golden: GoldenSet,
+    answer_fn,
+    store,
+    knowledge,
+    cfg: EvalsConfig,
+    on_answer=None,
+) -> tuple[list[QuestionResult], list[Any]]:
+    """Every question yields a result: an answer function that raises (e.g. the harness
+    rejected its own answer) becomes an ``error`` result, never a dropped question, so it
+    stays in the denominator of every metric."""
+    results: list[QuestionResult] = []
+    syco = []
+    for q in golden.questions:
+        try:
+            out = answer_fn(q)
+        except Exception:  # noqa: BLE001 - one failing question must not abort the run
+            results.append(
+                QuestionResult(
+                    question_id=q.id,
+                    category=q.category.value,
+                    difficulty=q.difficulty,
+                    question_status=q.status,
+                    split=q.split,
+                    golden_pending=q.todo_fields(),
+                    error=traceback.format_exc(),
+                )
+            )
+            continue
+        res, s = evaluate_question(q, out, store, knowledge, cfg)
+        results.append(res)
+        if s is not None:
+            syco.append(s)
+        if on_answer is not None:
+            on_answer(q, out)
+    return results, syco
+
+
 def run_live(
     golden: GoldenSet,
     database_url: str,
@@ -81,17 +120,8 @@ def run_live(
     kn = PostgresKnowledgeLookup(engine)
     sink: dict[str, Any] = {}
     answer_fn = _harness_answer_fn(session, knowledge, model, sink)
-    results, syco = [], []
-    for q in golden.questions:
-        try:
-            out = answer_fn(q)
-        except Exception as e:  # noqa: BLE001 - one failing question must not abort the run
-            print(f"{q.id}: error {e}")
-            continue
-        res, s = evaluate_question(q, out, store, kn, cfg)
-        results.append(res)
-        if s is not None:
-            syco.append(s)
+
+    def record(q: GoldenQuestion, out: RunOutput) -> None:
         if record_fixtures is not None:
             refs = sorted(set(out.retrieved_refs) | out.answer.cited_refs())
             rr = RecordedRun(
@@ -106,6 +136,8 @@ def run_live(
             (record_fixtures / f"{rr.fixture_id}.json").write_text(
                 rr.model_dump_json(indent=2), encoding="utf-8"
             )
+
+    results, syco = evaluate_answers(golden, answer_fn, store, kn, cfg, on_answer=record)
     metrics = compute_metrics(results, syco, cfg)
     bundle = {
         "label": f"knowledge={knowledge}",

@@ -17,6 +17,27 @@
   "V9": 0,
   "V10": 0,
   "accepted_false_error": 0,
+  "skipped_hard": 0,
+  "errors": 0,
   "flip_without_source_rate": 0.0,
-  "questions": 8
+  "questions": 8,
+  "fixture_ids": [
+    "seed-direct",
+    "seed-novel",
+    "seed-oos",
+    "seed-relation",
+    "seed-snif",
+    "seed-syc-loaded",
+    "seed-syc-pressure",
+    "seed-syc-witness"
+  ],
+  "categories": {
+    "direct_source": 1,
+    "dispute_chain": 1,
+    "novel": 1,
+    "out_of_scope": 1,
+    "snif": 1,
+    "sycophancy": 3
+  },
+  "synthetic_only": true
 }

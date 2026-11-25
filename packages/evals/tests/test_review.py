@@ -45,11 +45,30 @@ def ctx(tmp_path):
         pairs_path=pairs,
         reports_dir=tmp_path / "reports",
         texts={"A 1": "טקסט א", "B 1": "טקסט ב"},
+        include_synthetic=True,
     )
 
 
+def as_recorded(fx: Path, fid: str | None = None, **changes) -> None:
+    """Turn seed fixtures into 'recorded' (non-synthetic) runs, optionally changing fields."""
+    for p in sorted(fx.glob("seed-*.json")):
+        if fid and p.stem != fid:
+            continue
+        d = json.loads(p.read_text(encoding="utf-8"))
+        d["synthetic"] = False
+        for k, v in changes.items():
+            if k == "split":
+                d["split"] = v
+                d["question"]["split"] = v
+            else:
+                d[k] = v
+        p.write_text(json.dumps(d, ensure_ascii=False), encoding="utf-8")
+
+
 def test_index_and_answers_queue_save_ratings(ctx):
-    c = TestClient(create_app(ctx))
+    as_recorded(ctx.fixtures_dir)
+    ctx.include_synthetic = False
+    c = TestClient(create_app(ctx), base_url="http://127.0.0.1")
     assert c.get("/").status_code == 200
     page = c.get("/answers")
     assert page.status_code == 200 and 'dir="rtl"' in page.text
@@ -86,7 +105,7 @@ def test_index_and_answers_queue_save_ratings(ctx):
 
 
 def test_pairs_queue(ctx):
-    c = TestClient(create_app(ctx))
+    c = TestClient(create_app(ctx), base_url="http://127.0.0.1")
     page = c.get("/pairs")
     assert page.status_code == 200 and "טקסט ב" in page.text
     assert (
@@ -105,14 +124,14 @@ def test_pairs_queue(ctx):
 
 
 def test_items_queue_empty_without_database(ctx):
-    c = TestClient(create_app(ctx))
+    c = TestClient(create_app(ctx), base_url="http://127.0.0.1")
     r = c.get("/items")
     assert r.status_code == 200 and "ריק" in r.text
 
 
 def test_items_queue_empty_with_database_but_no_items(ctx, pg_engine):
     ctx.engine = pg_engine
-    r = TestClient(create_app(ctx)).get("/items")
+    r = TestClient(create_app(ctx), base_url="http://127.0.0.1").get("/items")
     assert r.status_code == 200 and "ריק" in r.text
 
 
@@ -170,15 +189,29 @@ def test_items_queue_order_and_transitions(ctx, kl_corpus):
 
     ids = _seed_items(kl_corpus)
     ctx.engine = kl_corpus
-    c = TestClient(create_app(ctx))
+    c = TestClient(create_app(ctx), base_url="http://127.0.0.1")
     page = c.get("/items")
     assert page.status_code == 200 and "<mark" in page.text and "סיכום 2" in page.text  # priority
     r = c.post(f"/api/items/{ids[2]}/action", json={"action": "approve"})
     assert r.status_code == 200 and r.json()["status"] == "verified"
-    r = c.post(f"/api/items/{ids[1]}/action", json={"action": "reject", "note": "גבול שגוי"})
+    r = c.post(
+        f"/api/items/{ids[1]}/action",
+        json={"action": "reject", "note": "גבול שגוי", "error_type": "wrong_boundary"},
+    )
     assert r.json()["status"] == "rejected"
-    r = c.post(f"/api/items/{ids[0]}/action", json={"action": "fix", "claim_id": "s2"})
-    assert r.status_code == 200 and r.json()["hidden_claims"] == ["s2"] and r.json()["applied"]
+    # reject / fix need an error type from the closed list
+    bad = c.post(f"/api/items/{ids[0]}/action", json={"action": "fix", "claim_id": "s2"})
+    assert bad.status_code == 422
+    bad = c.post(
+        f"/api/items/{ids[0]}/action",
+        json={"action": "fix", "claim_id": "s2", "error_type": "not_a_type"},
+    )
+    assert bad.status_code == 422
+    r = c.post(
+        f"/api/items/{ids[0]}/action",
+        json={"action": "fix", "claim_id": "s2", "error_type": "misread"},
+    )
+    assert r.status_code == 200 and r.json()["hidden_claims"] == ["s2"]
     with Session(kl_corpus) as s:
         acts = sorted(o.action for o in s.scalars(select(KlOverride)))
         assert acts == ["approve", "edit", "reject"]
@@ -188,12 +221,18 @@ def test_items_queue_order_and_transitions(ctx, kl_corpus):
             "reject",
         ]
         assert s.get(KlItem, ids[1]).is_current is False
+        # fix hides one claim and does NOT approve the rest: the item stays generated and
+        # current, and no human version is created
         cur = s.scalars(
             select(KlItem).where(KlItem.item_key == "sum:0", KlItem.is_current.is_(True))
         ).one()
-        assert cur.body["hidden_claims"] == ["s2"] and cur.prompt_version == "human"
-        assert cur.status == "verified"
-    diff = TestClient(create_app(ctx)).get("/items?diff=1")
+        assert cur.id == ids[0] and cur.status == "generated"
+        assert not s.scalars(select(KlItem).where(KlItem.prompt_version == "human")).all()
+        edit = s.scalars(select(KlOverride).where(KlOverride.action == "edit")).one()
+        assert edit.corrected == {"hidden_claims": ["s2"]}
+        review_notes = [v.note or "" for v in s.scalars(select(KlReview))]
+        assert any("error_type=misread" in n for n in review_notes)
+    diff = TestClient(create_app(ctx), base_url="http://127.0.0.1").get("/items?diff=1")
     assert diff.status_code in (200,)
     assert len(ctx.store.path("yair", "items").read_text(encoding="utf-8").splitlines()) == 3
     assert c.post("/api/items/999999/action", json={"action": "approve"}).status_code == 404

@@ -272,32 +272,39 @@ questions:
   category: out_of_scope
   difficulty: easy
   split: dev
-  scope_keys:
-  - Shabbat 21a-24a
+  scope_keys: []
   required_refs: []
   required_sides: []
   rubric:
-  - *id001
-  - &id003
-    id: scope-out
-    description: Answer.scope = out_of_scope
-    kind: scope_is
-    scope: out_of_scope
-  notes: 'TODO(human): לבחור נושא שבוודאות מחוץ לפרוסה.'
+  - id: verifier-clean
+    description: 'V8: התשובה פותחת בהערה ''שאלה זו מחוץ להיקף שכבת הידע שנבדקה; התשובה לא עברה אימות שכבת
+      ידע.'''
+    kind: verifier_passes
+  - id: full-answer
+    description: תשובה מלאה עם מקורות ומסקנה, לא סירוב (בלי מסקנה = כישלון רך, מדווח בלבד)
+    kind: llm
+    gate: false
+  notes: 'TODO(human): לבחור נושא שבוודאות מחוץ לפרוסה. | החלטת יאיר 25.11: תשובה מלאה עם מקורות ומסקנה
+    תחת ההערה; לא סירוב.'
   status: draft
 - id: oos-002
   question: 'TODO: שאלה בהלכות חנוכה שאינה בפרוסה (סימן שלא נקלט)'
   category: out_of_scope
   difficulty: medium
   split: heldout
-  scope_keys:
-  - Shabbat 21a-24a
+  scope_keys: []
   required_refs: []
   required_sides: []
   rubric:
-  - *id001
-  - *id003
-  notes: TODO(human)
+  - id: verifier-clean
+    description: 'V8: התשובה פותחת בהערה ''שאלה זו מחוץ להיקף שכבת הידע שנבדקה; התשובה לא עברה אימות שכבת
+      ידע.'''
+    kind: verifier_passes
+  - id: full-answer
+    description: תשובה מלאה עם מקורות ומסקנה, לא סירוב (בלי מסקנה = כישלון רך, מדווח בלבד)
+    kind: llm
+    gate: false
+  notes: 'TODO(human) | החלטת יאיר 25.11: תשובה מלאה עם מקורות ומסקנה תחת ההערה; לא סירוב.'
   status: draft
 - id: snif-001
   question: 'TODO: מקרה שבו פוסק מצרף שיטה שנדחתה כסניף'
@@ -312,7 +319,7 @@ questions:
   required_sides: []
   rubric:
   - *id001
-  - &id004
+  - &id003
     id: snif-kept
     description: הסניף מוצג (טענה מסומנת snif) ולא סונן
     kind: has_flag
@@ -333,7 +340,7 @@ questions:
   required_sides: []
   rubric:
   - *id001
-  - *id004
+  - *id003
   notes: TODO(human)
   status: draft
 - id: snif-003
@@ -349,6 +356,6 @@ questions:
   required_sides: []
   rubric:
   - *id001
-  - *id004
+  - *id003
   notes: TODO(human)
   status: draft

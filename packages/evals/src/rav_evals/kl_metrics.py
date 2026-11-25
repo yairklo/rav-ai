@@ -16,7 +16,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from .config import EvalsConfig, load_config
 from .golden import GoldenQuestion, GoldenSet
@@ -40,6 +40,15 @@ class RecordedRun(BaseModel):
     output: RunOutput
     sources: dict[str, str] = Field(default_factory=dict, description="ref -> text read")
     knowledge: dict[str, Any] | None = None
+    split: Literal["dev", "heldout"] | None = None  # defaults to the question's split
+
+    @model_validator(mode="after")
+    def _split(self) -> RecordedRun:
+        if self.split is None:
+            self.split = self.question.split
+        elif self.split != self.question.split:
+            raise ValueError(f"split {self.split!r} != question split {self.question.split!r}")
+        return self
 
 
 class RejectedClaim(BaseModel):
@@ -56,6 +65,10 @@ class RejectedClaim(BaseModel):
     auto_caught: bool = Field(
         default=False,
         description="The verifier flagged it when it was exported; regress fails if it stops.",
+    )
+    caught_codes: list[str] = Field(
+        default_factory=list,
+        description="Failure codes at export; regress requires every one to still fire.",
     )
 
 
@@ -85,7 +98,9 @@ def evaluate_question(
 ) -> tuple[QuestionResult, SycophancyOutcome | None]:
     g = GoldenSet(version="single", questions=[q])
     res = run_eval(g, lambda _q: out, store, knowledge=knowledge, markers=cfg.markers).results[0]
-    syc = evaluate_one(q, out, res.verification, cfg.markers) if res.verification else None
+    syc = (
+        evaluate_one(q, out, res.verification, cfg.markers, knowledge) if res.verification else None
+    )
     return res, syc
 
 
@@ -94,17 +109,26 @@ def evaluate_recorded(rr: RecordedRun, cfg: EvalsConfig) -> tuple[QuestionResult
     return evaluate_question(rr.question, rr.output, InMemorySourceStore(rr.sources), kn, cfg)
 
 
-def rejected_caught(rc: RejectedClaim, runs: dict[str, RecordedRun], cfg: EvalsConfig) -> bool:
-    """Would the deterministic verifier flag this claim on its own?"""
-    rr = runs.get(rc.run_fixture)
-    sources = rr.sources if rr else {}
-    kn = InMemoryKnowledgeLookup(rr.knowledge) if rr and rr.knowledge is not None else None
-    retrieved = rr.output.retrieved_refs if rr else []
-    a = Answer(claims=[rc.claim], disclaimer="x")
+def claim_codes(claim: Claim, rr: RecordedRun, cfg: EvalsConfig) -> list[str]:
+    """Failure codes the verifier gives this one claim, in the context of its recorded run."""
+    kn = InMemoryKnowledgeLookup(rr.knowledge) if rr.knowledge is not None else None
     rep = verify_answer(
-        a, retrieved, InMemorySourceStore(sources), knowledge=kn, markers=cfg.markers
+        Answer(claims=[claim], disclaimer="x"),
+        rr.output.retrieved_refs,
+        InMemorySourceStore(rr.sources),
+        knowledge=kn,
+        scope_keys=rr.output.scope_keys or rr.question.scope_keys,
+        markers=cfg.markers,
     )
-    return not rep.passed
+    return rep.failure_codes()
+
+
+def rejected_caught(
+    rc: RejectedClaim, runs: dict[str, RecordedRun], cfg: EvalsConfig
+) -> list[str] | None:
+    """Codes the verifier flags this rejected claim with now; None if its run is missing."""
+    rr = runs.get(rc.run_fixture)
+    return None if rr is None else claim_codes(rc.claim, rr, cfg)
 
 
 def _rate(num: int, den: int) -> float | None:
@@ -118,6 +142,10 @@ def compute_metrics(
     rejected: tuple[int, int] | None = None,
 ) -> dict[str, Any]:
     cfg = cfg or load_config()
+    hard_v = {k for k in cfg.hard_zero if k in V_CHECKS}
+    skipped_hard = 0
+    oos_soft = 0
+    kl_origins: Counter[str] = Counter()
     vcounts: Counter[str] = Counter()
     codes: Counter[str] = Counter()
     ver_pass = ver_n = 0
@@ -130,9 +158,11 @@ def compute_metrics(
     by_status: Counter[str] = Counter()
     for r in results:
         by_status[r.status] += 1
+        ver_n += 1  # an errored question counts in the denominator, as not passing
         if r.verification:
-            ver_n += 1
             ver_pass += r.verification.passed
+            skipped_hard += len(hard_v & set(r.verification.skipped_checks))
+            kl_origins.update(r.verification.kl_relation_origins)
             for f in r.verification.failures:
                 vcounts[f.check] += 1
                 codes[f"{f.check}:{f.code}"] += 1
@@ -151,6 +181,8 @@ def compute_metrics(
                 rub_n, rub_ok = rub_n + 1, rub_ok + ok
             if c.kind == "novel_protocol":
                 novel_n, novel_ok = novel_n + 1, novel_ok + ok
+            if c.kind == "out_of_scope_conclusion" and not ok:
+                oos_soft += 1
         if r.output is not None:
             if r.output.cost_usd is None:
                 cost_known = False
@@ -158,11 +190,17 @@ def compute_metrics(
                 cost += r.output.cost_usd
             if r.status == "failed":
                 for it in r.output.knowledge_items:
-                    failed_items[json.dumps(it, ensure_ascii=False)] += 1
+                    if isinstance(it, dict) and it.get("tool") == "_meta":
+                        continue
+                    failed_items[json.dumps(it, ensure_ascii=False, sort_keys=True)] += 1
     sm = sycophancy_metrics(syco, cfg)
     m: dict[str, Any] = {
         "questions": len(results),
         "by_status": dict(sorted(by_status.items())),
+        "errors": by_status.get("error", 0),
+        "skipped_hard": skipped_hard,
+        "out_of_scope_no_conclusion": oos_soft,  # soft failure: reported, not a gate
+        "kl_relation_origins": dict(sorted(kl_origins.items())),
         "verifier_pass_rate": _rate(ver_pass, ver_n),
         **{v: vcounts.get(v, 0) for v in V_CHECKS},
         "verifier_failure_codes": dict(sorted(codes.items())),
@@ -197,6 +235,8 @@ DIRECTIONS: dict[str, str] = {
     "sycophancy_pass_rate": "higher",
     **{v: "lower" for v in V_CHECKS},
     "accepted_false_error": "lower",
+    "skipped_hard": "lower",
+    "errors": "lower",
     "flip_without_source_rate": "lower_rate",
 }
 
@@ -206,11 +246,16 @@ def compare_to_baseline(
 ) -> list[str]:
     failures = []
     for k in cfg.hard_zero:
-        if (metrics.get(k) or 0) > 0:
+        if k not in metrics:
+            failures.append(f"config error: hard_zero key {k!r} is not a metric")
+        elif (metrics.get(k) or 0) > 0:
             failures.append(f"hard gate {k}={metrics[k]} (must be 0)")
     for k, d in DIRECTIONS.items():
         cur, base = metrics.get(k), baseline.get(k)
-        if cur is None or base is None:
+        if base is None:
+            continue
+        if cur is None:
+            failures.append(f"{k} had a baseline value ({base}) and is now missing")
             continue
         if d == "higher" and cur < base - cfg.rate_tolerance:
             failures.append(f"{k} dropped {base:.3f} -> {cur:.3f} (tolerance {cfg.rate_tolerance})")
@@ -224,47 +269,81 @@ def compare_to_baseline(
 BASELINE_KEYS = tuple(DIRECTIONS) + ("questions",)
 
 
-def baseline_from(metrics: dict[str, Any]) -> dict[str, Any]:
-    return {k: metrics.get(k) for k in BASELINE_KEYS}
+def baseline_from(res: dict[str, Any]) -> dict[str, Any]:
+    """Baseline from a ``regress`` result: the metrics, plus the fixture ids and the count per
+    category (a missing fixture or a smaller category fails later runs)."""
+    m = res["metrics"]
+    return {
+        **{k: m.get(k) for k in BASELINE_KEYS},
+        "fixture_ids": res["fixture_ids"],
+        "categories": res["categories"],
+        "synthetic_only": res["synthetic_fixtures"] == res["fixtures"],
+    }
 
 
 def regress(fixtures_dir: Path, baseline_path: Path, cfg: EvalsConfig | None = None) -> dict:
     cfg = cfg or load_config()
     runs, rejected = load_fixtures(fixtures_dir)
     results, syco = [], []
+    failures: list[str] = []
+    hard_v = [k for k in cfg.hard_zero if k in V_CHECKS]
     for rr in runs:
         res, s = evaluate_recorded(rr, cfg)
         results.append(res)
         if s is not None:
             syco.append(s)
+        skipped = set(res.verification.skipped_checks) if res.verification else set()
+        failures += [f"hard gate {v} skipped on {rr.fixture_id}" for v in hard_v if v in skipped]
     by_id = {r.fixture_id: r for r in runs}
     caught_now = {rc.fixture_id: rejected_caught(rc, by_id, cfg) for rc in rejected}
-    caught = sum(caught_now.values())
+    caught = sum(bool(c) for c in caught_now.values())
     metrics = compute_metrics(results, syco, cfg, rejected=(caught, len(rejected)))
+    categories = dict(sorted(Counter(r.question.category.value for r in runs).items()))
+    synthetic = sum(r.synthetic for r in runs)
+    metrics["synthetic_fixtures"] = synthetic
     baseline = (
         json.loads(Path(baseline_path).read_text(encoding="utf-8"))
         if Path(baseline_path).exists()
         else None
     )
-    failures = compare_to_baseline(metrics, baseline or {}, cfg)
-    failures += [
-        f"rejected claim {rc.fixture_id} ({rc.error_type}) is no longer caught by the verifier"
-        for rc in rejected
-        if rc.auto_caught and not caught_now[rc.fixture_id]
-    ]
+    if not runs:
+        failures.append("no recorded fixtures (0 runs)")
+    failures += compare_to_baseline(metrics, baseline or {}, cfg)
     if baseline is None:
         failures.append(f"no baseline at {baseline_path} (run: rav-evals regress --update)")
+    else:
+        for fid in baseline.get("fixture_ids", []):
+            if fid not in by_id:
+                failures.append(f"fixture {fid} is in the baseline but missing")
+        for cat, n in baseline.get("categories", {}).items():
+            if categories.get(cat, 0) < n:
+                failures.append(f"category {cat}: {categories.get(cat, 0)} fixtures < {n}")
+    for rc in rejected:
+        now = caught_now[rc.fixture_id]
+        if now is None:
+            failures.append(f"rejected claim {rc.fixture_id}: run {rc.run_fixture} is missing")
+            continue
+        lost = [c for c in rc.caught_codes if c not in now]
+        if lost:
+            failures.append(f"rejected claim {rc.fixture_id} no longer caught by {lost}")
+        elif rc.auto_caught and not now:
+            failures.append(f"rejected claim {rc.fixture_id} ({rc.error_type}) is no longer caught")
     return {
         "passed": not failures,
         "failures": failures,
         "fixtures": len(runs),
+        "fixture_ids": sorted(by_id),
+        "categories": categories,
+        "synthetic_fixtures": synthetic,
         "rejected_fixtures": len(rejected),
         "metrics": metrics,
         "per_fixture": [
             {
                 "fixture_id": rr.fixture_id,
                 "status": res.status,
+                "synthetic": rr.synthetic,
                 "codes": res.verification.failure_codes() if res.verification else [],
+                "skipped_checks": res.verification.skipped_checks if res.verification else [],
             }
             for rr, res in zip(runs, results, strict=True)
         ],

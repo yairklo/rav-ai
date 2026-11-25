@@ -146,12 +146,17 @@ def misattribution_report(
     """``ratings``: answer-queue claim ratings ({unit_id, verdict, error_type, subtype, ...}).
     Only interpretation units count; the latest rating per unit wins (input order)."""
     latest: dict[str, dict[str, Any]] = {}
+    untyped: set[str] = set()
     for r in ratings:
-        if r.get("claim_type", "interpretation") == "interpretation" and r.get("verdict"):
+        if not r.get("verdict"):
+            continue
+        if not r.get("claim_type"):  # never assumed to be an interpretation
+            untyped.add(r["unit_id"])
+        elif r["claim_type"] == "interpretation":
             latest[r["unit_id"]] = r
     wrong = [r for r in latest.values() if r.get("error_type") == "wrong_attribution"]
     by_sub: dict[str, int] = defaultdict(int)
     for r in wrong:
         by_sub[r.get("subtype") or "unspecified"] += 1
     gate = attribution_gate(len(wrong), len(latest), target, level)
-    return {**gate.as_dict(), "by_subtype": dict(sorted(by_sub.items()))}
+    return {**gate.as_dict(), "by_subtype": dict(sorted(by_sub.items())), "untyped": len(untyped)}

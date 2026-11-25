@@ -38,12 +38,15 @@ class RunOutput(BaseModel):
     retrieved_refs: list[str] = Field(default_factory=list)
     model: str = "unknown"
     tool_calls: list[dict[str, Any]] = Field(default_factory=list)
+    knowledge: str = "off"  # KL-3: off | base | base+lens (harness knowledge mode)
+    scope_keys: list[str] = Field(default_factory=list)  # KL-3: kl scope(s) of the run (V8)
+    cost_usd: float | None = None  # KL-3
+
     prompt_version: str | None = None
     prompt_hash: str | None = None  # sha256 of the full prompt, see models.prompt_hash
-    knowledge: str = "off"  # off | base | base+lens (harness knowledge mode)
-    scope_keys: list[str] = Field(default_factory=list)  # kl scope(s) the run covered (V8)
-    knowledge_items: list[Any] = Field(default_factory=list)  # [(item_key, version)] used
-    cost_usd: float | None = None
+    # knowledge-layer items the answer relied on: [{item_id, version, tool, tier}], plus a
+    # {"tool": "_meta", "meta": {knowledge, scope_gate}} entry (stored in runs.knowledge_items)
+    knowledge_items: list[dict[str, Any]] = Field(default_factory=list)
 
 
 AnswerFn = Callable[[GoldenQuestion], RunOutput]
@@ -360,7 +363,28 @@ def _auto_checks(q: GoldenQuestion, out: RunOutput, norm: Normalizer) -> list[Ch
                 reason="" if ok else "side not mentioned",
             )
         )
+    if q.category.value == "out_of_scope":
+        # Yair 25.11: an out-of-scope answer is a full answer (sources + conclusion) under the
+        # notice, not a refusal. No conclusion = a SOFT failure: reported, never gating.
+        ok = any(c.type is ClaimType.SYSTEM_CONCLUSION and c.citations for c in out.answer.claims)
+        results.append(
+            CheckResult(
+                id="out_of_scope_conclusion",
+                kind="out_of_scope_conclusion",
+                status="passed" if ok else "failed",
+                reason="" if ok else "no sourced conclusion (soft failure)",
+                gate=False,
+            )
+        )
     return results
+
+
+def question_in_scope(q: GoldenQuestion, out: RunOutput) -> bool | None:
+    """The scope comes from the question / run, never from the answer: False for an
+    out_of_scope question, True when the run or question has scope keys, None = unknown."""
+    if q.category.value == "out_of_scope":
+        return False
+    return True if (out.scope_keys or q.scope_keys) else None
 
 
 def run_eval(
@@ -401,6 +425,7 @@ def run_eval(
             knowledge=knowledge,
             scope_keys=out.scope_keys or q.scope_keys,
             markers=markers,
+            question_in_scope=question_in_scope(q, out),
         )
         checks = _auto_checks(q, out, normalize)
         checks += [_run_check(i, q, out, verification, normalize, judge, markers) for i in q.rubric]

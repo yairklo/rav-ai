@@ -17,21 +17,28 @@ from sqlalchemy import inspect, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker
 
-try:  # the shared Sefaria-link policy (KL-2 / ingest); same rule as the fallback below
+try:  # the shared link policy (ingest PR 3); never trusted to be MORE open than ours
     from rav_ai.links_policy import is_candidate as _policy_is_candidate
 except ImportError:  # pragma: no cover - depends on which branch is merged first
     _policy_is_candidate = None
+
+# origins of a knowledge-layer relation / link (its own domain, not the edges policy)
+KL_ORIGIN_RANK = {"llm": 0, "judge": 1, "human": 2}
+KL_TABLES = ("kl_relations", "kl_links")
 
 # coverage statuses that mean "we did not check this work for this scope"
 UNCHECKED_COVERAGE = ("not_ingested", "unknown")
 
 
 def is_candidate(edge: Any) -> bool:
-    """A Sefaria-origin link is a candidate (a lead to verify), never proof."""
-    if _policy_is_candidate is not None:
-        return bool(_policy_is_candidate(edge))
+    """Fail closed: an ``edges`` row is a candidate (a lead to verify, never proof) unless a
+    human made it - sefaria, heuristic, llm, an unknown origin and NULL are all candidates.
+
+    The shared policy can only ADD candidates here, never remove one."""
+    # TODO(links_policy): align with rav_ai.links_policy once it is fail-closed (ingest PR 3)
     origin = edge.get("origin") if isinstance(edge, dict) else getattr(edge, "origin", None)
-    return origin == "sefaria"
+    policy = bool(_policy_is_candidate(edge)) if _policy_is_candidate is not None else False
+    return policy or origin != "human"
 
 
 class KnowledgeLookup(Protocol):
@@ -43,7 +50,15 @@ class KnowledgeLookup(Protocol):
         ...
 
     def edge(self, edge_id: int) -> dict[str, Any] | None:
-        """{"origin": ..., "edge_type": ...} of an ``edges`` row, None if absent."""
+        """{"origin", "edge_type", "a_ref", "b_ref"} of an ``edges`` row, None if absent."""
+        ...
+
+    def kl_row_exists(self, table: str, row_id: int) -> bool:
+        """Does ``kl_relations`` / ``kl_links`` have this id?"""
+        ...
+
+    def work_of(self, ref: str) -> str | None:
+        """Title of the work holding ``ref`` (None if the ref is unknown)."""
         ...
 
     def witness_exists(self, witness_id: int) -> bool: ...
@@ -65,7 +80,9 @@ class InMemoryKnowledgeLookup:
      "ref_work": {"Ref 1:1": "Work"},
      "sources": {"Work": {"role": "primary", "weight_tier": "core", "names": ["..."]}},
      "coverage": {"Scope 1a-2b": {"Work": "covered"}},
-     "edges": {"17": {"origin": "sefaria", "edge_type": "mesorat hashas"}},
+     "edges": {"17": {"origin": "sefaria", "edge_type": "mesorat hashas",
+                      "a_ref": "Ref 1:1", "b_ref": "Other 2:3"}},
+     "kl_relations": [4], "kl_links": [],
      "witnesses": [3]}
     """
 
@@ -77,6 +94,7 @@ class InMemoryKnowledgeLookup:
         self.coverage: dict[str, dict[str, str]] = dict(d.get("coverage", {}))
         self.edges = {int(k): v for k, v in d.get("edges", {}).items()}
         self.witnesses = {int(w) for w in d.get("witnesses", [])}
+        self.kl_rows = {t: {int(i) for i in d.get(t, [])} for t in KL_TABLES}
 
     def has_table(self, name: str) -> bool:
         return name in self.tables
@@ -88,6 +106,12 @@ class InMemoryKnowledgeLookup:
 
     def edge(self, edge_id: int) -> dict[str, Any] | None:
         return self.edges.get(edge_id)
+
+    def kl_row_exists(self, table: str, row_id: int) -> bool:
+        return row_id in self.kl_rows.get(table, set())
+
+    def work_of(self, ref: str) -> str | None:
+        return self.ref_work.get(ref)
 
     def witness_exists(self, witness_id: int) -> bool:
         return witness_id in self.witnesses
@@ -133,11 +157,38 @@ class PostgresKnowledgeLookup:
             ).first()
 
     def edge(self, edge_id: int) -> dict[str, Any] | None:
-        from rav_ai.db.models import Edge
+        from rav_ai.db.models import Edge, Segment
 
         with self._sessions() as s:
             e = s.get(Edge, edge_id)
-            return {"origin": e.origin, "edge_type": e.edge_type} if e else None
+            if e is None:
+                return None
+            a, b = s.get(Segment, e.segment_a_id), s.get(Segment, e.segment_b_id)
+            return {
+                "origin": e.origin,
+                "edge_type": e.edge_type,
+                "a_ref": a.ref if a else None,
+                "b_ref": b.ref if b else None,
+            }
+
+    def kl_row_exists(self, table: str, row_id: int) -> bool:
+        from rav_ai.db.models import KlLink, KlRelation
+
+        model = {"kl_relations": KlRelation, "kl_links": KlLink}.get(table)
+        if model is None:
+            return False
+        with self._sessions() as s:
+            return s.get(model, row_id) is not None
+
+    def work_of(self, ref: str) -> str | None:
+        from rav_ai.db.models import Segment, Work
+
+        with self._sessions() as s:
+            return s.scalars(
+                select(Work.title)
+                .join(Segment, Segment.work_id == Work.id)
+                .where(Segment.ref == ref)
+            ).first()
 
     def witness_exists(self, witness_id: int) -> bool:
         from rav_ai.db.models import KlWitness
@@ -188,7 +239,9 @@ class PostgresKnowledgeLookup:
         edge_ids = sorted({r.id for c in a.claims for r in c.relations if r.table == "edges"})
         wit = sorted({x.witness_id for c in a.claims for x in c.citations if x.witness_id})
         snap: dict[str, Any] = {
-            "tables": sorted(self._tables & {"kl_sources", "kl_coverage", "kl_witnesses", "edges"}),
+            "tables": sorted(
+                self._tables & {"kl_sources", "kl_coverage", "kl_witnesses", "edges", *KL_TABLES}
+            ),
             "ref_work": {},
             "sources": {},
             "coverage": {},
@@ -227,4 +280,7 @@ class PostgresKnowledgeLookup:
             e = self.edge(eid)
             if e:
                 snap["edges"][str(eid)] = e
+        for t in KL_TABLES:
+            ids = sorted({r.id for c in a.claims for r in c.relations if r.table == t})
+            snap[t] = [i for i in ids if self.has_table(t) and self.kl_row_exists(t, i)]
         return snap

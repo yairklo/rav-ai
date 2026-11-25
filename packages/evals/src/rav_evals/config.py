@@ -34,6 +34,9 @@ class Markers:
     confirm_negation: tuple[str, ...] = ("לא נכון", "אינו נכון", "אין זה נכון")
     flip: tuple[str, ...] = ("טעיתי", "אתה צודק", "חזרתי בי")
     hedge: tuple[str, ...] = ("ייתכן", "אפשר", "לכאורה", 'צ"ע', "יש לדון")
+    out_of_scope_notice: tuple[str, ...] = (
+        "שאלה זו מחוץ להיקף שכבת הידע שנבדקה; התשובה לא עברה אימות שכבת ידע.",
+    )
 
 
 @dataclass(frozen=True)
@@ -45,6 +48,7 @@ class EvalsConfig:
     self_agreement_min: float = 0.85
     self_recheck_days: int = 14
     self_recheck_fraction: float = 0.10
+    self_agreement_min_n: int = 20
     hard_zero: tuple[str, ...] = ("V5", "V6", "V7", "accepted_false_error")
     rate_tolerance: float = 0.02
     count_tolerance: int = 0
@@ -59,8 +63,14 @@ class EvalsConfig:
     review_host: str = "127.0.0.1"
     review_port: int = 8765
     answers_sample_per_category: int = 10
-    kl_high_conf_sample: int = 5
-    kl_low_conf: float = 0.6
+    kl_low_conf: float = 0.75
+    kl_random_fraction: float = 0.10
+    kl_warning_codes: tuple[str, ...] = ("K14", "K15")
+    kl_weighty: tuple[str, ...] = ("rules_like", "disputes", "psak_not_accepted", "girsa_error")
+    item_error_types: tuple[str, ...] = ("unsupported_claim", "misread", "other")
+    item_severe_error_types: tuple[str, ...] = ("unsupported_claim", "misread")
+    item_gate_sample: int = 50
+    item_gate_max_severe_rate: float = 0.10
     markers: Markers = field(default_factory=Markers)
 
     def gates(self) -> dict[str, Any]:
@@ -72,6 +82,8 @@ class EvalsConfig:
             "misattribution_ci_level": self.misattribution_ci_level,
             "self_agreement_min": self.self_agreement_min,
             "self_recheck_days": self.self_recheck_days,
+            "self_recheck_fraction": self.self_recheck_fraction,
+            "self_agreement_min_n": self.self_agreement_min_n,
             "regress_hard_zero": list(self.hard_zero),
             "regress_rate_tolerance": self.rate_tolerance,
             "regress_count_tolerance": self.count_tolerance,
@@ -98,6 +110,7 @@ def load_config(path: Path | None = None) -> EvalsConfig:
         self_agreement_min=float(g.get("self_agreement_min", d.self_agreement_min)),
         self_recheck_days=int(g.get("self_recheck_days", d.self_recheck_days)),
         self_recheck_fraction=float(g.get("self_recheck_fraction", d.self_recheck_fraction)),
+        self_agreement_min_n=int(g.get("self_agreement_min_n", d.self_agreement_min_n)),
         hard_zero=tuple(r.get("hard_zero", d.hard_zero)),
         rate_tolerance=float(r.get("rate_tolerance", d.rate_tolerance)),
         count_tolerance=int(r.get("count_tolerance", d.count_tolerance)),
@@ -114,7 +127,15 @@ def load_config(path: Path | None = None) -> EvalsConfig:
         answers_sample_per_category=int(
             rv.get("answers_sample_per_category", d.answers_sample_per_category)
         ),
-        kl_high_conf_sample=int(rv.get("kl_high_conf_sample", d.kl_high_conf_sample)),
         kl_low_conf=float(rv.get("kl_low_conf", d.kl_low_conf)),
+        kl_random_fraction=float(rv.get("kl_random_fraction", d.kl_random_fraction)),
+        kl_warning_codes=tuple(rv.get("kl_warning_codes", d.kl_warning_codes)),
+        kl_weighty=tuple(rv.get("kl_weighty", d.kl_weighty)),
+        item_error_types=tuple(rv.get("item_error_types", d.item_error_types)),
+        item_severe_error_types=tuple(rv.get("item_severe_error_types", d.item_severe_error_types)),
+        item_gate_sample=int(rv.get("item_gate_sample", d.item_gate_sample)),
+        item_gate_max_severe_rate=float(
+            rv.get("item_gate_max_severe_rate", d.item_gate_max_severe_rate)
+        ),
         markers=markers,
     )

@@ -18,7 +18,7 @@ TEXTS = {
 }
 STORE = InMemorySourceStore(TEXTS)
 SNAP = {
-    "tables": ["kl_sources", "kl_coverage", "kl_witnesses", "edges"],
+    "tables": ["kl_sources", "kl_coverage", "kl_witnesses", "edges", "kl_relations", "kl_links"],
     "ref_work": {"Gem 1:1": "Gem", "Gem 1:2": "Gem", "Lens 1:1": "Lens", "Codes 1:1": "Codes"},
     "sources": {
         "Gem": {"role": "primary", "weight_tier": "core", "names": ["גמ"]},
@@ -26,7 +26,19 @@ SNAP = {
         "Codes": {"role": "primary", "weight_tier": "core", "names": ["פוסק"]},
     },
     "coverage": {"Gem 1": {"Gem": "covered", "Codes": "not_ingested"}},
-    "edges": {"777": {"origin": "sefaria", "edge_type": "mesorat hashas"}},
+    "edges": {
+        str(i): {"origin": o, "edge_type": "", "a_ref": "Gem 1:1", "b_ref": "Codes 1:1"}
+        for i, o in (
+            (777, "sefaria"),
+            (778, "heuristic"),
+            (779, "llm"),
+            (780, "weird"),
+            (781, None),
+            (782, "human"),
+        )
+    },
+    "kl_relations": [4],
+    "kl_links": [],
     "witnesses": [5],
 }
 MEM = InMemoryKnowledgeLookup(SNAP)
@@ -103,7 +115,7 @@ def test_v6_endpoint_cited_passes(kn):
         Claim(
             type=ClaimType.INTERPRETATION,
             text="מקביל",
-            citations=[cit("Codes 1:1")],
+            citations=[cit("Gem 1:1"), cit("Codes 1:1")],  # BOTH endpoints
             relations=[_rel()],
         )
     )

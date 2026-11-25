@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import random
 import re
 from collections import Counter, defaultdict
@@ -261,12 +262,42 @@ def collect_ratings(
 
 
 def _first_by_rater(rs: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    """Each rater's first non-recheck rating (latest edit before any recheck)."""
+    """Each rater's first-pass rating: the latest non-recheck edit made BEFORE that rater's
+    first recheck of the pair (a regular rating after a recheck never replaces it)."""
     out: dict[str, dict[str, Any]] = {}
-    for r in rs:
-        if not r.get("recheck"):
-            out[r["rater_id"]] = r  # later edits of the same first pass win
+    rechecked: set[str] = set()
+    for r in rs:  # sorted by time
+        rid = r["rater_id"]
+        if r.get("recheck"):
+            rechecked.add(rid)
+        elif rid not in rechecked:
+            out[rid] = r
     return out
+
+
+def recheck_candidates(
+    pairs: list[dict[str, Any]],
+    ratings: Iterable[dict[str, Any]],
+    rater_id: str,
+    *,
+    now: datetime,
+    days: int = 14,
+    fraction: float = 0.10,
+    seed: int = 0,
+) -> list[str]:
+    """``fraction`` of the base pairs ``rater_id`` rated at least ``days`` ago and has not
+    rechecked yet (seeded, deterministic): the blind self-agreement recheck set."""
+    by_pair = collect_ratings(pairs, [r for r in ratings if r["rater_id"] == rater_id])
+    base = [p["pair_id"] for p in pairs if p.get("dup_of") is None]
+    rated = [pid for pid in base if rater_id in _first_by_rater(by_pair.get(pid, []))]
+    old = [
+        pid
+        for pid in rated
+        if (now - _ts(_first_by_rater(by_pair[pid])[rater_id])).days >= days
+        and not any(r.get("recheck") for r in by_pair[pid])
+    ]
+    k = min(len(old), math.ceil(fraction * len(rated))) if rated else 0
+    return sorted(random.Random(seed).sample(sorted(old), k))
 
 
 def pairs_kappa(
@@ -278,6 +309,8 @@ def pairs_kappa(
     reps: int = 1000,
     self_min: float = 0.85,
     recheck_days: int = 14,
+    recheck_fraction: float = 0.10,
+    min_n: int = 20,
 ) -> dict[str, Any]:
     by_pair = collect_ratings(pairs, extra_ratings)
     base_ids = [p["pair_id"] for p in pairs if p.get("dup_of") is None]
@@ -352,11 +385,19 @@ def pairs_kappa(
                     total += 1
                     same += rc["label"] == first["label"]
         rate = same / total if total else None
+        rated = report["rated_by_rater"].get(rid, 0)
+        needed = max(min_n, math.ceil(recheck_fraction * rated))
+        if total < needed or rate is None:
+            verdict = "UNDECIDED"
+        else:
+            verdict = "PASS" if rate >= self_min else "FAIL"
         selfag[rid] = {
             "n": total,
+            "needed_n": needed,
             "agreement": rate,
             "target": self_min,
-            "meets_target": rate is not None and rate >= self_min,
+            "verdict": verdict,
+            "meets_target": verdict == "PASS",
         }
     report["self_agreement"] = selfag
     return report
@@ -394,7 +435,10 @@ def kappa_markdown(rep: dict[str, Any]) -> str:
     lines += ["", "Self agreement (blind recheck):"]
     for rid, v in rep["self_agreement"].items():
         a = "n/a" if v["agreement"] is None else f"{v['agreement']:.0%}"
-        lines.append(f"- {rid}: {a} (n={v['n']}, target {v['target']:.0%})")
+        lines.append(
+            f"- {rid}: {a} (n={v['n']} of {v['needed_n']} needed, target {v['target']:.0%}): "
+            + ("לא מוכרע" if v["verdict"] == "UNDECIDED" else v["verdict"])
+        )
     return "\n".join(lines) + "\n"
 
 

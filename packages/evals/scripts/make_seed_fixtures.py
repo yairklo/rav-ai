@@ -23,7 +23,7 @@ SOURCES = {
     "Seed Lens 1": "ספר עיון לדוגמה מסביר את דברי הראשון באופן מסוים",
 }
 KNOWLEDGE = {
-    "tables": ["kl_sources", "kl_coverage", "kl_witnesses", "edges"],
+    "tables": ["kl_sources", "kl_coverage", "kl_witnesses", "edges", "kl_relations", "kl_links"],
     "ref_work": {
         "Seed Gemara 1a:1": "Seed Gemara",
         "Seed Gemara 1a:2": "Seed Gemara",
@@ -39,9 +39,19 @@ KNOWLEDGE = {
     "coverage": {
         SCOPE: {"Seed Gemara": "covered", "Seed Rishon": "covered", "Seed Codes": "not_ingested"}
     },
-    "edges": {"901": {"origin": "sefaria", "edge_type": "mesorat hashas"}},
+    "edges": {
+        "901": {
+            "origin": "sefaria",
+            "edge_type": "mesorat hashas",
+            "a_ref": "Seed Gemara 1a:1",
+            "b_ref": "Seed Gemara 1a:2",
+        }
+    },
+    "kl_relations": [31],
+    "kl_links": [],
     "witnesses": [7],
 }
+OOS_NOTICE = "שאלה זו מחוץ להיקף שכבת הידע שנבדקה; התשובה לא עברה אימות שכבת ידע."
 DISCLAIMER = "זו דעת המערכת על פי המקורות שנקראו, ואינה פסק הלכה למעשה."
 NOTE = "synthetic seed fixture (neutral placeholder text, not halakhic content)"
 
@@ -50,22 +60,31 @@ def cit(ref, quote, **kw):
     return Citation(ref=ref, quoted_text=quote, **kw)
 
 
-def q(id, category, **kw):
+def q(id, category, scope_keys=(SCOPE,), **kw):
     return GoldenQuestion(
         id=id,
         question=f"שאלת דוגמה {id}",
         category=category,
         difficulty="easy",
         status="reviewed",
-        scope_keys=[SCOPE],
+        scope_keys=list(scope_keys),
         notes=NOTE,
         **kw,
     )
 
 
-def run(fid, question, claims, *, scope="in_scope", unchecked=("Seed Codes",), retrieved=None):
+def run(
+    fid,
+    question,
+    claims,
+    *,
+    scope="in_scope",
+    unchecked=("Seed Codes",),
+    retrieved=None,
+    disclaimer=DISCLAIMER,
+):
     answer = Answer(
-        claims=claims, disclaimer=DISCLAIMER, scope=scope, unchecked_core_books=list(unchecked)
+        claims=claims, disclaimer=disclaimer, scope=scope, unchecked_core_books=list(unchecked)
     )
     out = RunOutput(
         answer=answer,
@@ -73,7 +92,7 @@ def run(fid, question, claims, *, scope="in_scope", unchecked=("Seed Codes",), r
         model="seed",
         prompt_version="seed-v0",
         knowledge="base",
-        scope_keys=[SCOPE],
+        scope_keys=list(question.scope_keys),
         cost_usd=0.0,
     )
     return RecordedRun(
@@ -134,7 +153,7 @@ FIXTURES = [
             rubric=[{"id": "nub", "description": "d", "kind": "no_unbacked_confirmation"}],
         ),
         [
-            Claim(type=ClaimType.QUOTE, text="הנוסח שלפנינו בגמרא הוא", citations=[G1]),
+            Claim(type=ClaimType.QUOTE, text="לשון הגמרא שלפנינו", citations=[G1]),
             Claim(
                 type=ClaimType.SYSTEM_CONCLUSION,
                 flagged_as_system=True,
@@ -198,24 +217,20 @@ FIXTURES = [
     ),
     run(
         "seed-oos",
-        q(
-            "seed-oos",
-            "out_of_scope",
-            required_refs=[],
-            rubric=[
-                {"id": "oos", "description": "scope", "kind": "scope_is", "scope": "out_of_scope"}
-            ],
-        ),
+        # Yair 25.11: out of scope = a full answer with sources and a conclusion, under the notice
+        q("seed-oos", "out_of_scope", scope_keys=(), required_refs=[]),
         [
+            Claim(type=ClaimType.QUOTE, text="לשון המקור", citations=[G1]),
             Claim(
                 type=ClaimType.SYSTEM_CONCLUSION,
                 flagged_as_system=True,
-                text="השאלה מחוץ לפרוסה שנקלטה, ואין לי מקורות לענות עליה",
+                text="מסקנת המערכת על פי המקור שנקרא",
+                citations=[G1],
             ),
         ],
         scope="out_of_scope",
         unchecked=(),
-        retrieved=[],
+        disclaimer=OOS_NOTICE + " " + DISCLAIMER,
     ),
     run(
         "seed-relation",
@@ -224,7 +239,9 @@ FIXTURES = [
             Claim(
                 type=ClaimType.INTERPRETATION,
                 text="המקור המקביל אומר",
-                citations=[G1],
+                # a candidate edge with BOTH endpoints retrieved and cited, plus an
+                # LLM-extracted kl_relation (not a link: never a candidate)
+                citations=[G1, cit("Seed Gemara 1a:2", "שורה שנייה של טקסט")],
                 relations=[
                     RelationRef(
                         table="edges",
@@ -233,7 +250,8 @@ FIXTURES = [
                         evidence_origin="sefaria",
                         candidate=True,
                         evidence_refs=["Seed Gemara 1a:1", "Seed Gemara 1a:2"],
-                    )
+                    ),
+                    RelationRef(table="kl_relations", id=31, rel="supports", evidence_origin="llm"),
                 ],
             ),
         ],

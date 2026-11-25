@@ -153,7 +153,9 @@ class GoldenSet(BaseModel):
         return {q.id: q.todo_fields() for q in self.questions if q.pending}
 
 
-def load_golden(path: str | Path, split: Literal["dev", "heldout"] | None = None) -> GoldenSet:
+def load_golden(path: str | Path, split: Literal["dev", "heldout"] | None = "dev") -> GoldenSet:
+    """Loads the ``dev`` split by default: heldout is never loaded by accident (both splits
+    only with an explicit ``split=None``, e.g. golden-status)."""
     data = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
     g = GoldenSet.model_validate(data)
     return g.select_split(split) if split else g

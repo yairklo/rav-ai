@@ -66,10 +66,17 @@ def test_rejected_claim_that_was_caught_must_stay_caught(tmp_path):
     }
     (d / "rejected-seed-direct-c9.json").write_text(json.dumps(rc, ensure_ascii=False), "utf-8")
     assert regress(d, BASELINE_PATH)["passed"]  # V7 catches it
+    rc["caught_codes"] = ["V7:witness_missing"]
     rc["claim"]["text"] = "טענה רגילה"  # no longer caught by anything
     (d / "rejected-seed-direct-c9.json").write_text(json.dumps(rc, ensure_ascii=False), "utf-8")
     res = regress(d, BASELINE_PATH)
     assert not res["passed"] and any("no longer caught" in f for f in res["failures"])
+    # a missing run is a failure, never "caught"
+    rc["run_fixture"] = "no-such-run"
+    rc["claim"]["text"] = "יש כאן טעות סופר"
+    (d / "rejected-seed-direct-c9.json").write_text(json.dumps(rc, ensure_ascii=False), "utf-8")
+    res = regress(d, BASELINE_PATH)
+    assert any("run no-such-run is missing" in f for f in res["failures"])
 
 
 def test_compare_writes_md_and_json(tmp_path):
