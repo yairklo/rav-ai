@@ -5,3 +5,41 @@ temperature = 0.0
 max_tokens = 4096
 max_steps = 12            # LLM calls per question, including the final submit_answer
 max_answer_retries = 2    # rejected submit_answer attempts before the run fails
+# Knowledge layer: "off" (prompt v0, no kl tools) | "base" (no readings, chakirot,
+# method principles or secondary-tier items) | "base+lens" (everything).
+knowledge = "off"
+min_confidence = 0.5      # kl items below this are not returned (NULL confidence: verified only)
+allow_personal_only = false  # PERSONAL_ONLY_RESTRICTED sources: personal mode AND this flag
+
+# Pilot scope: the deterministic gate before the loop. daf rules cover "<work> <from>-<to>"
+# (amudim, "a"/"b"); number rules cover chapters/simanim of "<work> <n>".
+[scope]
+[[scope.rules]]
+kind = "daf"
+work = "Shabbat"
+from = "21a"
+to = "24b"
+
+[[scope.rules]]
+kind = "number"
+work = "Mishneh Torah, Scroll of Esther and Hanukkah"   # Rambam, Hilkhot Megillah vaChanukah
+from = 3
+to = 4
+
+[[scope.rules]]
+kind = "number"
+work = "Tur, Orach Chayim"
+from = 670
+to = 685
+
+[[scope.rules]]
+kind = "number"
+work = "Beit Yosef, Orach Chayim"
+from = 670
+to = 685
+
+[[scope.rules]]
+kind = "number"
+work = "Shulchan Arukh, Orach Chayim"
+from = 670
+to = 685

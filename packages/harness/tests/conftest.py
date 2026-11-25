@@ -113,6 +113,13 @@ def session(engine):
         yield s
 
 
+@pytest.fixture
+def kl(session):
+    from kl_seed import seed_kl
+
+    return seed_kl(session)
+
+
 def seed(s: Session) -> None:
     snap = Snapshot(source="sefaria", export_label="t", status="complete")
     s.add(snap)

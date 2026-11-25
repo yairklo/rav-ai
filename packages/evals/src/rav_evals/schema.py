@@ -22,6 +22,25 @@ class Citation(BaseModel):
         default=None,
         description='Who said it, e.g. "המשנה ברורה בשם המגן אברהם". None = the source itself.',
     )
+    # knowledge layer (KL-2/KL-3): all optional so v0 answers keep validating
+    source_role: Literal["primary", "secondary_lens"] = Field(
+        default="primary",
+        description="secondary_lens: a lens work (its author's understanding of a primary source).",
+    )
+    witness_id: int | None = Field(
+        default=None, description="kl_witnesses.id of the textual witness a girsa claim rests on."
+    )
+
+
+class RelationRef(BaseModel):
+    """A knowledge-layer relation a claim leans on, shown with its kind and evidence origin."""
+
+    table: Literal["kl_relations", "kl_links", "edges"] = "kl_relations"
+    id: int
+    rel: str = ""  # rel / edge_type; validated by the harness (must be non-empty)
+    evidence_origin: str = ""  # sefaria | llm | judge | human; validated by the harness
+    candidate: bool = False  # a Sefaria link is a candidate, not evidence
+    evidence_refs: list[str] = Field(default_factory=list)
 
 
 class Claim(BaseModel):
@@ -33,6 +52,11 @@ class Claim(BaseModel):
         description="Explicit marking that this claim is the system's own (required for "
         "chidush and system_conclusion).",
     )
+    kl_item_ids: list[int] = Field(default_factory=list)
+    relations: list[RelationRef] = Field(default_factory=list)
+    flags: list[Literal["unusual_interpretation", "snif", "system_novelty", "lens"]] = Field(
+        default_factory=list
+    )
 
 
 class Answer(BaseModel):
@@ -41,6 +65,8 @@ class Answer(BaseModel):
         default="",
         description="Statement that this is the system's opinion, not a ruling for practice.",
     )
+    scope: Literal["in_scope", "partial", "out_of_scope"] | None = None
+    unchecked_core_books: list[str] = Field(default_factory=list)
     is_psak: Literal[False] = Field(
         default=False, description="Always False: the system never issues a ruling for practice."
     )
