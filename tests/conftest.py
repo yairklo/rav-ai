@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import uuid
 from pathlib import Path
 
@@ -35,7 +36,10 @@ def engine():
         with admin.connect() as c:
             c.execute(text(f'CREATE DATABASE "{name}"'))
     except Exception as e:  # noqa: BLE001
-        pytest.skip(f"Postgres not available (docker compose up -d): {e}")
+        msg = f"Postgres not available (docker compose up -d): {e}"
+        if os.environ.get("REQUIRE_DB") == "1":  # CI: a missing DB is a failure, not a skip
+            pytest.fail(msg)
+        pytest.skip(msg)
     url = f"postgresql+psycopg://rav:rav@localhost:54329/{name}"
     migrate(url)
     eng = make_engine(url)
