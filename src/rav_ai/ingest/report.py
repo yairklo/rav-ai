@@ -126,6 +126,24 @@ def build(
               ORDER BY 3 DESC LIMIT 25""")
         ).all()
     with engine.connect() as c:
+        rnf_top = c.execute(
+            text("""SELECT k, count(*) FROM (
+              SELECT CASE WHEN book_a ~ 'Zohar' OR book_b ~ 'Zohar' THEN 'Zohar (any)'
+                WHEN book_a ~ '^Rav Hirsch on Torah' OR book_b ~ '^Rav Hirsch on Torah'
+                  THEN 'Rav Hirsch on Torah'
+                ELSE CASE WHEN side='b' THEN book_b ELSE book_a END END k
+              FROM unresolved_links WHERE reason='ref_not_found') u
+              GROUP BY 1 ORDER BY 2 DESC LIMIT 20""")
+        ).all()
+        rnf_gap = c.execute(
+            text("""SELECT count(*) FILTER (WHERE book_a ~ 'Zohar' OR book_b ~ 'Zohar'
+                OR book_a ~ '^Rav Hirsch on Torah' OR book_b ~ '^Rav Hirsch on Torah'),
+              count(*) FROM unresolved_links WHERE reason='ref_not_found'""")
+        ).one()
+        ritva = c.execute(
+            text("SELECT count(*) FROM works WHERE title = 'Ritva on Shabbat'")
+        ).scalar()
+    with engine.connect() as c:
         nowiki = c.execute(
             text("""
             SELECT w.title, s.section_path->>0 AS daf, count(*) FROM works w
@@ -217,6 +235,21 @@ def build(
         *[f"| {r} | {b} | {n:,} |" for r, b, n in top_books],
         "",
     ]
+    gap, rnf_all = rnf_gap
+    md += [
+        "### `ref_not_found` by book (top 20)",
+        "",
+        f"Export gaps (Hebrew text absent or numbered differently from the links): "
+        f"Zohar + Rav Hirsch = {gap:,} of {rnf_all:,}. The rest ({rnf_all - gap:,}) is not "
+        "individually classified: partial Hebrew texts vs. resolver failures.",
+        "",
+        "| book | links |",
+        "|---|---:|",
+        *[f"| {k} | {n:,} |" for k, n in rnf_top],
+        "",
+    ]
+    if not ritva:
+        md += ["**Known export gap:** `Ritva on Shabbat` is not in the Sefaria export.", ""]
     md += ["### Unresolved: examples (citation A | citation B | type | side)", ""]
     for reason, ex in samples.items():
         md.append(f"**{reason}**")
