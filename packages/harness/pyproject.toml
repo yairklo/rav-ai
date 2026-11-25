@@ -43,3 +43,4 @@ select = ["E", "F", "I", "UP", "B"]
 testpaths = ["tests"]
 addopts = "--import-mode=importlib"
 pythonpath = ["tests"]
+markers = ["real_known_gaps: use the shipped config/known_gaps.toml"]

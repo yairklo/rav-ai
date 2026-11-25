@@ -32,6 +32,7 @@ from rav_ai.db.models import (
     SegmentText,
     Work,
 )
+from rav_ai.links_policy import candidate_label, is_candidate
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 from textnorm import normalize
@@ -98,13 +99,6 @@ LENS_ONLY_TOOLS = ("get_chakirot", "get_method_principles")
 def clip(text: str | None, n: int) -> str:
     words = (text or "").split()
     return " ".join(words[:n]) + (" …" if len(words) > n else "")
-
-
-# TODO(links_policy): replace with rav_ai.links_policy.is_candidate (ingest PR 3)
-def is_edge_candidate(origin: str | None) -> bool:
-    """Fail closed: an ``edges`` link is a candidate, never evidence, unless a human made it.
-    sefaria, heuristic, llm, any unknown value and NULL are all candidates."""
-    return origin != "human"
 
 
 def _spec(name: str, description: str, properties: dict, required: list[str]) -> dict:
@@ -902,7 +896,7 @@ class KnowledgeTools:
         items = []
         for e in edges:
             ra, rb = refs.get(e.segment_a_id), refs.get(e.segment_b_id)
-            cand = is_edge_candidate(e.origin)
+            cand = is_candidate(e.origin)
             origin = e.origin or "unknown"
             view = {
                 "table": "edges",
@@ -916,13 +910,7 @@ class KnowledgeTools:
                 "candidate": cand,
                 "evidence_origin": origin,
                 "evidence_refs": [],
-                "label": (
-                    self.phrases.sefaria_label
-                    if origin == "sefaria"
-                    else self.phrases.auto_link_label
-                    if cand
-                    else None
-                ),
+                "label": candidate_label(e.origin) if cand else None,
             }
             self.ctx.relations_seen[("edges", e.id)] = {
                 **view,
