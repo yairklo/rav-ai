@@ -37,6 +37,9 @@ class RunOutput(BaseModel):
     tool_calls: list[dict[str, Any]] = Field(default_factory=list)
     prompt_version: str | None = None
     prompt_hash: str | None = None  # sha256 of the full prompt, see models.prompt_hash
+    # knowledge-layer items the answer relied on: [{item_id, version, tool, tier}], plus a
+    # {"tool": "_meta", "meta": {knowledge, scope_gate}} entry (stored in runs.knowledge_items)
+    knowledge_items: list[dict[str, Any]] = Field(default_factory=list)
 
 
 AnswerFn = Callable[[GoldenQuestion], RunOutput]

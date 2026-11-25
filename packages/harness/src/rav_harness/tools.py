@@ -11,6 +11,9 @@ from rav_ai.lookup import deployment_mode, get_texts, may_display, neighbors
 from sqlalchemy.orm import Session
 from textnorm import find_citations, normalize
 
+from .config import HarnessConfig
+from .knowledge_tools import KnowledgeTools
+
 SNIPPET_CHARS = 300
 
 
@@ -81,15 +84,26 @@ class CorpusTools:
     """The four tools over a SQLAlchemy session. ``retrieved_refs`` lists refs whose text the
     model has actually seen (full text, or an untruncated snippet): the verifier's V1 set."""
 
-    def __init__(self, session: Session, mode: str | None = None):
+    def __init__(
+        self, session: Session, mode: str | None = None, config: HarnessConfig | None = None
+    ):
         self.session = session
         self.mode = mode or deployment_mode()
         self.retrieved_refs: list[str] = []
+        # knowledge layer tools (off: not offered, v0 behaviour). They never add to
+        # retrieved_refs: only get_segment (and the corpus tools) mark text as read.
+        self.kl: KnowledgeTools | None = (
+            KnowledgeTools(session, config, self.mode)
+            if config is not None and config.knowledge != "off"
+            else None
+        )
 
     def specs(self) -> list[dict[str, Any]]:
-        return TOOL_SPECS
+        return [*TOOL_SPECS, *(self.kl.specs() if self.kl else [])]
 
     def call(self, name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+        if self.kl is not None and self.kl.has(name):
+            return self.kl.call(name, arguments)
         fn = {
             "get_segment": self.get_segment,
             "neighbors": self.neighbors,

@@ -30,6 +30,7 @@ def run_from_result(result: Any, question_text: str, golden_version: str | None 
         model=result.model or "unknown",
         prompt_version=out.prompt_version if out else None,
         prompt_hash=out.prompt_hash if out else None,
+        knowledge_items=list(out.knowledge_items) if out else [],
         retrieved_sources=list(out.retrieved_refs) if out else [],
         tool_calls=list(out.tool_calls) if out else [],
         answer=out.answer.model_dump(mode="json") if out else None,
