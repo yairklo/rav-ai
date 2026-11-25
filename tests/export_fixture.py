@@ -142,6 +142,24 @@ def build_export(r: Path, sa_second: str = "סעיף ב") -> None:
             BER, "he", "Vilna", "Public Domain", [[], [], ["a1", "a2"], ["b1"]], primary=True
         ),
     )
+    bavli = f"json/Talmud/Bavli/Seder Zeraim/{BER}/Hebrew"
+    write_json(
+        r,
+        f"{bavli}/Wikisource Talmud Bavli.json",
+        version_doc(BER, "he", "Wikisource Talmud Bavli", "CC-BY-SA", [[], [], ["w a1", "w a2"]]),
+    )  # 2a only
+    write_json(
+        r,
+        f"{bavli}/William Davidson Edition - Aramaic.json",
+        version_doc(
+            BER,
+            "he",
+            "William Davidson Edition - Aramaic",
+            "CC-BY-NC",
+            [[], [], ["d a1", "d a2"], ["d b1"]],
+            primary=True,
+        ),  # Sefaria's own primary flag: the NC edition
+    )
     write_json(
         r,
         f"schemas/{RASHI.replace(' ', '_')}.json",
@@ -178,6 +196,7 @@ def build_export(r: Path, sa_second: str = "סעיף ב") -> None:
         (f"{BER} 2a", f"{MB} 1", "", BER, MB),  # section-level endpoints
         (f"{SA} 1:1", "English Only Book 1", "", SA, "English Only Book"),
         (f"{SA} 1:1", "Mystery Book 1", "", SA, "Mystery Book"),
+        (f"{SA} 1:1", f"{BER}, Appendix 1", "", SA, f"{BER}, Appendix"),  # node of a real work
     ]
     body = "".join(
         f'"{a}","{b}",{t},"{x}","{y}",c,d\n' for a, b, t, x, y in rows for c, d in [("h", "h")]

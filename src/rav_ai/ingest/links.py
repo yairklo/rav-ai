@@ -62,12 +62,21 @@ def toc_titles(raw_dir: Path) -> set[str]:
     return out
 
 
+def work_prefix(book: str, works: dict[str, int]) -> str | None:
+    """Longest work title W such that `book` is 'W, <node>' (a node of a complex work)."""
+    best = None
+    for w in works:
+        if book.startswith(w + ", ") and (best is None or len(w) > len(best)):
+            best = w
+    return best
+
+
 def ingest_links(engine: Engine, raw_dir: Path, snap_id: int, log: Log = print) -> dict:
     stats: dict = {}
     raw = engine.raw_connection()
     try:
         cur = raw.cursor()
-        cur.execute("DROP TABLE IF EXISTS link_stage, link_exact, endpoint_res")
+        cur.execute("DROP TABLE IF EXISTS link_stage, link_exact, endpoint_res, lf")
         cur.execute("""CREATE UNLOGGED TABLE link_stage (
             id bigserial PRIMARY KEY, c1 text, c2 text, ltype text, t1 text, t2 text,
             file text, line int)""")
@@ -116,6 +125,13 @@ def ingest_links(engine: Engine, raw_dir: Path, snap_id: int, log: Log = print) 
         with cur.copy("COPY endpoint_res (c,t,ids,n,reason) FROM STDIN") as cp:
             for title, cits in by_book.items():
                 wid = works.get(title)
+                idx_title = title
+                if wid is None:
+                    # 'Text 1' may name a node of a complex work ("Tur, Orach Chayim"):
+                    # resolve inside the longest work title that prefixes it.
+                    parent = work_prefix(title, works)
+                    if parent is not None:
+                        wid, idx_title = works[parent], parent
                 if wid is None:
                     reason = "no_hebrew_version" if title in known else "book_not_in_export"
                     for c in cits:
@@ -127,7 +143,7 @@ def ingest_links(engine: Engine, raw_dir: Path, snap_id: int, log: Log = print) 
                                 FROM segments WHERE work_id=%s""",
                     (wid,),
                 )
-                idx = WorkIndex.build(title, cur2.fetchall())
+                idx = WorkIndex.build(idx_title, cur2.fetchall())
                 cur2.close()
                 for c in cits:
                     ids = idx.resolve(c)
@@ -144,7 +160,7 @@ def ingest_links(engine: Engine, raw_dir: Path, snap_id: int, log: Log = print) 
 
         cur.execute("""
         CREATE TEMP TABLE lf AS
-        SELECT l.id, l.c1, l.c2, l.ltype, r1.ids ids1, r1.n n1, r1.reason rs1,
+        SELECT l.id, l.c1, l.c2, l.ltype, l.t1, l.t2, r1.ids ids1, r1.n n1, r1.reason rs1,
                r2.ids ids2, r2.n n2, r2.reason rs2
         FROM link_stage l
         JOIN endpoint_res r1 ON r1.c=l.c1 AND r1.t=l.t1
@@ -163,10 +179,10 @@ def ingest_links(engine: Engine, raw_dir: Path, snap_id: int, log: Log = print) 
               WHERE ids1 IS NOT NULL AND ids2 IS NOT NULL AND n1::bigint*n2 > {EXPAND_LIMIT}
             ) q WHERE a <> b""")
         cur.execute(f"""INSERT INTO unresolved_links
-              (snapshot_id, citation_a, citation_b, edge_type, reason, side)
+              (snapshot_id, citation_a, citation_b, edge_type, reason, side, book_a, book_b)
             SELECT {int(snap_id)}, c1, c2, ltype, COALESCE(rs1, rs2),
                    CASE WHEN rs1 IS NOT NULL AND rs2 IS NOT NULL THEN 'both'
-                        WHEN rs1 IS NOT NULL THEN 'a' ELSE 'b' END
+                        WHEN rs1 IS NOT NULL THEN 'a' ELSE 'b' END, t1, t2
             FROM lf WHERE rs1 IS NOT NULL OR rs2 IS NOT NULL""")
         cur.execute("SELECT count(*) FROM unresolved_links WHERE snapshot_id=%s", (snap_id,))
         stats["links_unresolved"] = cur.fetchone()[0]
@@ -208,7 +224,7 @@ def ingest_links(engine: Engine, raw_dir: Path, snap_id: int, log: Log = print) 
             stats["edges_removed_vs_prev"] = cur.fetchone()[0]
         cur.execute("DELETE FROM edges WHERE origin='sefaria' AND snapshot_id<>%s", (snap_id,))
         cur.execute("DELETE FROM unresolved_links WHERE snapshot_id<>%s", (snap_id,))
-        cur.execute("DROP TABLE IF EXISTS link_exact, endpoint_res, link_stage")
+        cur.execute("DROP TABLE IF EXISTS link_exact, endpoint_res, link_stage, lf")
         raw.commit()
     finally:
         raw.close()

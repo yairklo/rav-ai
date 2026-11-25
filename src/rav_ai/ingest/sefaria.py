@@ -23,6 +23,7 @@ from rav_ai.db.models import (
     Version,
     Work,
 )
+from rav_ai.ingest.order import layer_of
 from rav_ai.normalize import normalize_a, normalize_b
 from rav_ai.sefaria.layout import parse_version_object, schema_object_name
 from rav_ai.sefaria.periods import derive_period
@@ -204,6 +205,36 @@ def apply_policy(policy: LicensePolicy, lic: str | None) -> dict:
     )
 
 
+def apply_primary_rules(engine: Engine, rules: list[dict] | None = None) -> int:
+    """Set versions.is_primary per config/primary_versions.toml (idempotent; no re-import).
+
+    A rule only takes effect for a work that actually has the named version; otherwise the
+    work keeps Sefaria's own primary flag.
+    """
+    from rav_ai.config import load_primary_rules
+
+    n = 0
+    with engine.begin() as conn:
+        for rule in rules if rules is not None else load_primary_rules():
+            cond = " AND ".join(
+                f"w.category_path ? :c{i}" for i in range(len(rule["category_path_contains"]))
+            )
+            params = {f"c{i}": c for i, c in enumerate(rule["category_path_contains"])}
+            params["pv"] = rule["primary_version"]
+            base = "AND w.dependence IS NULL" if rule.get("base_text_only") else ""
+            res = conn.execute(
+                text(
+                    f"""UPDATE versions v SET is_primary = (v.version_title = :pv)
+                    FROM works w WHERE w.id = v.work_id AND {cond} {base}
+                    AND EXISTS (SELECT 1 FROM versions x WHERE x.work_id = w.id
+                                AND x.version_title = :pv)"""
+                ),
+                params,
+            )
+            n += res.rowcount
+    return n
+
+
 def recompute_flags(engine: Engine, policy: LicensePolicy) -> int:
     """Re-apply license policy to all stored versions (no re-import needed)."""
     n = 0
@@ -231,8 +262,13 @@ def ingest_version(
     vpath: Path,
     policy: LicensePolicy,
     fhash: str,
+    renormalize: bool = False,
 ) -> dict:
-    """Insert/diff one version file. Returns change counts."""
+    """Insert/diff one version file. Returns change counts.
+
+    renormalize=True also recomputes the derived forms (A/B/offsets) of unchanged segments in
+    place (use after a textnorm upgrade); the raw text and hashes are untouched.
+    """
     with open(vpath, encoding="utf-8") as f:
         doc = json.load(f)
     vtitle = doc.get("versionTitle") or vpath.stem
@@ -292,7 +328,8 @@ def ingest_version(
     added = [r for r in units if r not in old]
     changed = [r for r, (_, h) in units.items() if r in old and old[r][1] != h]
     removed = [r for r in old if r not in units]
-    todo = added + changed
+    rederive = [r for r in units if r in old and r not in changed] if renormalize else []
+    todo = added + changed + rederive
 
     if todo:
         seg_ids = _load_segment_ids(conn, work_id)
@@ -317,9 +354,11 @@ def ingest_version(
             conn.execute(insert(Segment), rows)
         if new_segs:
             seg_ids = _load_segment_ids(conn, work_id)
-        if changed:
+        if changed or rederive:
             conn.execute(
-                delete(SegmentText).where(SegmentText.id.in_([old[r][0] for r in changed]))
+                delete(SegmentText).where(
+                    SegmentText.id.in_([old[r][0] for r in (*changed, *rederive)])
+                )
             )
         for i in range(0, len(todo), PAGE):
             rows = []
@@ -383,13 +422,22 @@ def ingest_all(
     snap_id: int,
     only_books: set[str] | None = None,
     log: Log = print,
+    renormalize: bool = False,
 ) -> dict:
     books = discover_books(raw_dir)
     if only_books:
         books = {t: b for t, b in books.items() if t in only_books}
     totals: Counter = Counter()
     errors: list[str] = []
-    for i, (title, book) in enumerate(sorted(books.items()), 1):
+    ordered = sorted(
+        books.items(),
+        key=lambda kv: (
+            layer_of(kv[0], kv[1].category_path),
+            not kv[0].startswith("Shulchan Arukh"),  # base text before its commentators
+            kv[0],
+        ),
+    )
+    for i, (title, book) in enumerate(ordered, 1):
         try:
             with engine.begin() as conn:
                 wid, schema = upsert_work(conn, book)
@@ -402,7 +450,7 @@ def ingest_all(
                         )
                     ).all()
                     # unchanged file + already known -> only mark as seen
-                    hit = next((p for p in prior if p[1] == fh), None)
+                    hit = None if renormalize else next((p for p in prior if p[1] == fh), None)
                     if hit:
                         conn.execute(
                             update(Version)
@@ -411,7 +459,9 @@ def ingest_all(
                         )
                         totals["versions_unchanged_skipped"] += 1
                         continue
-                    res = ingest_version(conn, snap_id, wid, schema, title, vp, policy, fh)
+                    res = ingest_version(
+                        conn, snap_id, wid, schema, title, vp, policy, fh, renormalize
+                    )
                 for k in ("added", "changed", "removed", "unchanged", "duplicate_refs"):
                     totals[k] += res[k]
                 totals["versions_processed"] += 1
@@ -421,6 +471,7 @@ def ingest_all(
         if i % 25 == 0 or i == len(books):
             log(f"  books {i}/{len(books)}  segments+ {totals['added']:,}")
     base_links = link_base_works(engine)
+    apply_primary_rules(engine)
     out = dict(totals)
     out.update(books=len(books), base_works_linked=base_links, errors=errors)
     return out

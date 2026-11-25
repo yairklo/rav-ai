@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
+import os
 import re
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-DATA_DIR = ROOT / "data"
+DATA_DIR = Path(os.environ.get("RAV_DATA_DIR", ROOT / "data"))
 RAW_DIR = DATA_DIR / "raw"
 DEFAULT_DB_URL = "postgresql+psycopg://rav:rav@localhost:54329/rav_ai"  # see docker-compose.yml
 POLICY_PATH = ROOT / "config" / "license_policy.toml"
+PRIMARY_RULES_PATH = ROOT / "config" / "primary_versions.toml"
 
 
 @dataclass(frozen=True)
@@ -62,3 +64,8 @@ class LicensePolicy:
 
     def evaluate(self, license_str: str | None) -> Permission:
         return self.table[self.match(license_str)]
+
+
+def load_primary_rules(path: Path = PRIMARY_RULES_PATH) -> list[dict]:
+    with open(path, "rb") as f:
+        return tomllib.load(f).get("rule", [])
