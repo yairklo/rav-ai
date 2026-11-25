@@ -112,6 +112,22 @@ def build(
               ELSE book_a END,'?'), count(*) FROM unresolved_links GROUP BY 1,2
               ORDER BY 3 DESC LIMIT 25""")
         ).all()
+    with engine.connect() as c:
+        nowiki = c.execute(
+            text("""
+            SELECT w.title, s.section_path->>0 AS daf, count(*) FROM works w
+            JOIN segments s ON s.work_id = w.id JOIN segment_text t ON t.segment_id = s.id
+            JOIN versions v ON v.id = t.version_id
+            WHERE w.category_path ? 'Bavli' AND w.dependence IS NULL
+            GROUP BY w.title, daf, s.node_index HAVING NOT bool_or(v.is_primary)
+            ORDER BY w.title, s.node_index, min(s.sort_key)""")
+        ).all()
+        bavli_pages = c.execute(
+            text("""
+            SELECT count(*) FROM (SELECT 1 FROM works w JOIN segments s ON s.work_id = w.id
+            WHERE w.category_path ? 'Bavli' AND w.dependence IS NULL
+            GROUP BY w.title, s.section_path->>0) x""")
+        ).scalar()
     words, toks = token_counts(engine, {w: v for w, (v, _) in top.items()}, encoding, log)
 
     rows = []
@@ -199,6 +215,22 @@ def build(
     ]
     md += ["### License problems (fail-closed => can_index=false)", ""]
     md += [f"- `{lic}`: {n} versions, {wc:,} words" for lic, n, wc in problems] or ["- none"]
+    md += [
+        "",
+        "## Bavli pages without a text in the primary (Wikisource) version",
+        "",
+        f"{len(nowiki):,} of {bavli_pages:,} pages (these fall back to other versions, which "
+        "may be non-displayable).",
+        "",
+    ]
+    by_tr: dict[str, list[str]] = defaultdict(list)
+    for tr, daf, _ in nowiki:
+        by_tr[tr].append(daf)
+    for tr, dafim in by_tr.items():
+        md.append(
+            f"- **{tr}** ({len(dafim)}): {', '.join(dafim[:25])}"
+            + (" ..." if len(dafim) > 25 else "")
+        )
     md += [
         "",
         f"## Tokens ({encoding}, top version per book, form B)",

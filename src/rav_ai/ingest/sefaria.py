@@ -205,6 +205,36 @@ def apply_policy(policy: LicensePolicy, lic: str | None) -> dict:
     )
 
 
+def apply_primary_rules(engine: Engine, rules: list[dict] | None = None) -> int:
+    """Set versions.is_primary per config/primary_versions.toml (idempotent; no re-import).
+
+    A rule only takes effect for a work that actually has the named version; otherwise the
+    work keeps Sefaria's own primary flag.
+    """
+    from rav_ai.config import load_primary_rules
+
+    n = 0
+    with engine.begin() as conn:
+        for rule in rules if rules is not None else load_primary_rules():
+            cond = " AND ".join(
+                f"w.category_path ? :c{i}" for i in range(len(rule["category_path_contains"]))
+            )
+            params = {f"c{i}": c for i, c in enumerate(rule["category_path_contains"])}
+            params["pv"] = rule["primary_version"]
+            base = "AND w.dependence IS NULL" if rule.get("base_text_only") else ""
+            res = conn.execute(
+                text(
+                    f"""UPDATE versions v SET is_primary = (v.version_title = :pv)
+                    FROM works w WHERE w.id = v.work_id AND {cond} {base}
+                    AND EXISTS (SELECT 1 FROM versions x WHERE x.work_id = w.id
+                                AND x.version_title = :pv)"""
+                ),
+                params,
+            )
+            n += res.rowcount
+    return n
+
+
 def recompute_flags(engine: Engine, policy: LicensePolicy) -> int:
     """Re-apply license policy to all stored versions (no re-import needed)."""
     n = 0
@@ -441,6 +471,7 @@ def ingest_all(
         if i % 25 == 0 or i == len(books):
             log(f"  books {i}/{len(books)}  segments+ {totals['added']:,}")
     base_links = link_base_works(engine)
+    apply_primary_rules(engine)
     out = dict(totals)
     out.update(books=len(books), base_works_linked=base_links, errors=errors)
     return out

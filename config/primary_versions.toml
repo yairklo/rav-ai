@@ -1,0 +1,10 @@
+# Which version of a work is `primary` (the one shown/quoted first), overriding Sefaria's own
+# isPrimary flag. Other versions stay in the DB with their own license flags.
+#
+# Bavli base texts: the William Davidson edition is CC-BY-NC (no public display, no training);
+# Wikisource is CC-BY-SA, so every page that has it can be displayed.
+[[rule]]
+name = "bavli-wikisource"
+category_path_contains = ["Talmud", "Bavli"]
+base_text_only = true            # not commentaries (works with a `dependence`)
+primary_version = "Wikisource Talmud Bavli"

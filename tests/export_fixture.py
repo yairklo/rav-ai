@@ -142,6 +142,24 @@ def build_export(r: Path, sa_second: str = "סעיף ב") -> None:
             BER, "he", "Vilna", "Public Domain", [[], [], ["a1", "a2"], ["b1"]], primary=True
         ),
     )
+    bavli = f"json/Talmud/Bavli/Seder Zeraim/{BER}/Hebrew"
+    write_json(
+        r,
+        f"{bavli}/Wikisource Talmud Bavli.json",
+        version_doc(BER, "he", "Wikisource Talmud Bavli", "CC-BY-SA", [[], [], ["w a1", "w a2"]]),
+    )  # 2a only
+    write_json(
+        r,
+        f"{bavli}/William Davidson Edition - Aramaic.json",
+        version_doc(
+            BER,
+            "he",
+            "William Davidson Edition - Aramaic",
+            "CC-BY-NC",
+            [[], [], ["d a1", "d a2"], ["d b1"]],
+            primary=True,
+        ),  # Sefaria's own primary flag: the NC edition
+    )
     write_json(
         r,
         f"schemas/{RASHI.replace(' ', '_')}.json",

@@ -85,7 +85,13 @@ def test_export_gate(engine, raw_dir, policy, tmp_path):
     versions = {
         json.loads(line)["version"] for line in out.read_text(encoding="utf-8").splitlines()
     }
-    assert versions == {"Torat Emet", "MB", "Vilna", "Rashi"}  # no NC / Restricted / unlicensed
+    assert versions == {
+        "Torat Emet",
+        "MB",
+        "Vilna",
+        "Rashi",
+        "Wikisource Talmud Bavli",
+    }  # no NC / Restricted / unlicensed
 
 
 def test_edges_resolution_and_bidirectionality(engine, raw_dir, policy):
@@ -178,10 +184,10 @@ def test_snapshot_and_hash_diff(engine, raw_dir, policy):
 def test_license_report_is_per_version(engine, raw_dir, policy, tmp_path):
     run_import(engine, raw_dir, policy)
     rows = fetch_rows(engine)
-    assert len(rows) == 7  # 4 SA + MB + Berakhot + Rashi Hebrew versions
+    assert len(rows) == 9  # 4 SA + MB + 3 Berakhot + Rashi Hebrew versions
     summ = summarize(rows)
-    assert summ["can_train"]["cannot_train"]["versions"] == 3  # NC, Restricted, none
-    assert summ["license"]["CC-BY-NC"]["books"] == 1
+    assert summ["can_train"]["cannot_train"]["versions"] == 4  # NC, Restricted, none, WD NC
+    assert summ["license"]["CC-BY-NC"]["books"] == 2  # SA NC edition + Bavli William Davidson
     out = tmp_path / "l.csv"
     write_csv(rows, summ, out)
     last = out.read_text(encoding="utf-8-sig").strip().splitlines()[-1]

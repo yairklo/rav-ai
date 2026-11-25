@@ -158,3 +158,62 @@ def test_renormalize_updates_derived_forms_only(engine, raw_dir, policy):
             == 0
         )  # raw hashes unchanged => no diff entries
     assert stats["changed"] == 0
+
+
+def test_bavli_primary_is_wikisource_and_gaps_reported(
+    engine, raw_dir, policy, tmp_path, monkeypatch
+):
+    import tiktoken
+
+    class Enc:
+        def encode_ordinary_batch(self, texts, num_threads=1):
+            return [t.split() for t in texts]
+
+    monkeypatch.setattr(tiktoken, "get_encoding", lambda name: Enc())
+    _, stats = run(engine, raw_dir, policy)
+    with engine.connect() as c:
+        prim = dict(
+            c.execute(
+                text("""SELECT v.version_title, v.is_primary FROM versions v
+              JOIN works w ON w.id=v.work_id WHERE w.title=:t"""),
+                {"t": BER},
+            ).all()
+        )
+        # a page that has both versions: the displayable text comes first
+        first = c.execute(
+            text("""SELECT v.version_title, v.can_display_public FROM segment_text t
+              JOIN versions v ON v.id=t.version_id JOIN segments s ON s.id=t.segment_id
+              WHERE s.ref=:r ORDER BY v.is_primary DESC, v.priority DESC NULLS LAST LIMIT 1"""),
+            {"r": f"{BER} 2a:1"},
+        ).one()
+    assert prim["Wikisource Talmud Bavli"] is True
+    assert prim["William Davidson Edition - Aramaic"] is False and prim["Vilna"] is False
+    assert first == ("Wikisource Talmud Bavli", True)
+    from rav_ai.cli.export import FLAG  # noqa: F401  (William Davidson stays, flags intact)
+
+    with engine.connect() as c:
+        wd = c.execute(
+            text("""SELECT can_display_public, can_train, license FROM versions
+              WHERE version_title LIKE 'William Davidson%'""")
+        ).one()
+        assert wd == (False, False, "CC-BY-NC")
+    build(engine, LicensePolicy.load(), stats, tmp_path, log=quiet)
+    md = (tmp_path / "ingest_report.md").read_text(encoding="utf-8")
+    assert (
+        "without a text in the primary" in md and "**Berakhot** (1): 2b" in md
+    )  # 2b: no Wikisource
+    # idempotent: re-applying the rules changes nothing
+    from rav_ai.ingest.sefaria import apply_primary_rules
+
+    apply_primary_rules(engine)
+    with engine.connect() as c:
+        assert (
+            c.execute(
+                text(
+                    "SELECT count(*) FROM versions WHERE is_primary AND work_id="
+                    "(SELECT id FROM works WHERE title=:t)"
+                ),
+                {"t": BER},
+            ).scalar()
+            == 1
+        )

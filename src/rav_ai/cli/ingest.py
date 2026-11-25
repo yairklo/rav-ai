@@ -21,6 +21,7 @@ from rav_ai.db.session import db_url, make_engine, migrate
 from rav_ai.ingest.links import ingest_links
 from rav_ai.ingest.manifest import write_manifest
 from rav_ai.ingest.sefaria import (
+    apply_primary_rules,
     finish_snapshot,
     ingest_all,
     recompute_flags,
@@ -88,6 +89,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(out, indent=1))
     elif args.cmd == "recompute-flags":
         print(f"updated {recompute_flags(engine, policy)} versions")
+        print(f"primary rules touched {apply_primary_rules(engine)} versions")
     elif args.cmd == "diff":
         with engine.connect() as c:
             sid = args.snapshot or c.execute(select(func.max(Snapshot.id))).scalar_one()
