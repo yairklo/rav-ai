@@ -200,8 +200,10 @@ def build(
         md += [
             f"- links total: {lk.get('links_total', 0):,}; unresolved: "
             f"{lk.get('links_unresolved', 0):,}; **resolved: {lk.get('resolved_pct')}%**",
-            f"- **resolved among links whose both books are ingested (Hebrew): {in_scope_pct(lk)}%** "
-            "(excludes book_not_in_export / no_hebrew_version: books outside the Hebrew export)",
+            "- **resolved among links whose both books are ingested (Hebrew): "
+            f"{in_scope_pct(lk)}%** "
+            "(excludes book_not_in_export / no_hebrew_version: books outside the "
+            "Hebrew export)",
             f"- exact single-segment links: {lk.get('links_exact', 0):,}; edges: "
             f"{lk.get('edges', 0):,} (range-collapsed: {lk.get('edges_range_collapsed', 0):,})",
             "",
