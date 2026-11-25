@@ -32,10 +32,12 @@ def harness(llm, tools=None, **cfg):
 
 
 def test_tool_then_submit_records_everything():
-    llm = FakeLLM([
-        reply(call("get_segment", ref="Berakhot 2a:1")),
-        reply(call("submit_answer", "c2", **answer_args()), cost=0.02, tin=200, tout=50),
-    ])
+    llm = FakeLLM(
+        [
+            reply(call("get_segment", ref="Berakhot 2a:1")),
+            reply(call("submit_answer", "c2", **answer_args()), cost=0.02, tin=200, tout=50),
+        ]
+    )
     res = harness(llm).run("מתי קוראים קריאת שמע של ערבית?")
     assert res.error is None and res.answer is not None
     assert res.steps == 2
@@ -61,8 +63,11 @@ def test_empty_disclaimer_is_filled_and_psak_cannot_be_set():
 
 def test_unflagged_system_claim_is_bounced_then_accepted():
     bad = answer_args(claims=[{"type": "chidush", "text": "חידוש", "flagged_as_system": False}])
-    good = answer_args(claims=[{"type": "chidush", "text": "חידוש של המערכת, בהסתייגות",
-                                "flagged_as_system": True}])
+    good = answer_args(
+        claims=[
+            {"type": "chidush", "text": "חידוש של המערכת, בהסתייגות", "flagged_as_system": True}
+        ]
+    )
     llm = FakeLLM([reply(call("submit_answer", **bad)), reply(call("submit_answer", **good))])
     res = harness(llm).run("q")
     assert res.answer is not None
@@ -86,8 +91,13 @@ def test_max_steps_without_answer_is_an_error_not_an_exception():
 
 
 def test_text_only_reply_is_nudged_to_submit():
-    llm = FakeLLM([reply(content="I think it's evening"), reply(call("get_segment")),
-                   reply(call("submit_answer", **answer_args()))])
+    llm = FakeLLM(
+        [
+            reply(content="I think it's evening"),
+            reply(call("get_segment")),
+            reply(call("submit_answer", **answer_args())),
+        ]
+    )
     res = harness(llm).run("q")
     assert res.answer is not None
     assert "Call submit_answer" in llm.calls[1]["messages"][-1]["content"]
@@ -96,10 +106,12 @@ def test_text_only_reply_is_nudged_to_submit():
 def test_tool_exception_and_bad_json_arguments_are_reported_to_the_model():
     broken = parse_tool_call("c9", "get_segment", "{not json")
     assert broken.arguments_error
-    llm = FakeLLM([
-        reply(ToolCall("c1", "boom", {}, "{}"), broken),
-        reply(call("get_segment"), call("submit_answer", "c3", **answer_args())),
-    ])
+    llm = FakeLLM(
+        [
+            reply(ToolCall("c1", "boom", {}, "{}"), broken),
+            reply(call("get_segment"), call("submit_answer", "c3", **answer_args())),
+        ]
+    )
     res = harness(llm).run("q")
     assert res.answer is not None
     errors = [c["error"] for c in res.tool_calls if c["error"]]
@@ -115,15 +127,23 @@ def test_llm_failure_is_recorded_and_unknown_cost_stays_none():
     res = harness(Down()).run("q")
     assert res.answer is None and "ConnectionError" in res.error and res.cost_usd is None
 
-    llm = FakeLLM([reply(call("get_segment"), cost=None),
-                   reply(call("submit_answer", **answer_args()), cost=None)])
+    llm = FakeLLM(
+        [
+            reply(call("get_segment"), cost=None),
+            reply(call("submit_answer", **answer_args()), cost=None),
+        ]
+    )
     assert harness(llm).run("q").cost_usd is None
 
 
 def test_recorder_receives_result_and_ids():
     seen = []
     llm = FakeLLM([reply(call("get_segment")), reply(call("submit_answer", **answer_args()))])
-    h = Harness(llm, FakeTools(), HarnessConfig(),
-                recorder=lambda r, qid, gv: seen.append((r.question, qid, gv)) or "run-1")
+    h = Harness(
+        llm,
+        FakeTools(),
+        HarnessConfig(),
+        recorder=lambda r, qid, gv: seen.append((r.question, qid, gv)) or "run-1",
+    )
     res = h.run("שאלה", question_id="q1", golden_version="g1")
     assert seen == [("שאלה", "q1", "g1")] and res.run_id == "run-1"

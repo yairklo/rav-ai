@@ -13,7 +13,7 @@ First skeleton of the agent that answers halakhic questions. LiteLLM as the mode
   disclaimer.
 - **Runs**: every run (also failures) is a row in `runs`: messages, tool calls, tokens, cost.
 - **Evals**: `integration.make_answer_fn` / `run_golden`; the rav-evals verifier checks the answer
-  against the DB (`DbSourceStore`) and its result is written back to the run row.
+  against the DB (`rav_evals.pg_store.PostgresSourceStore`, can_index-gated) and its result is written back to the run row.
 
 ```
 uv run rav-harness ask "..."            # needs a DB and a provider API key
@@ -21,4 +21,4 @@ uv run rav-harness eval golden.yaml
 ```
 
 Tests use a scripted fake LLM (no network); DB tests need `docker compose up -d` (skipped
-otherwise).
+otherwise; `REQUIRE_DB=1` makes a missing DB a failure).

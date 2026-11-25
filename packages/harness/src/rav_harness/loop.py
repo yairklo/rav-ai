@@ -64,8 +64,10 @@ def validate_answer(arguments: dict[str, Any], retrieved: set[str]) -> tuple[Ans
             problems.append(f"claim {i} ({c.type}) must set flagged_as_system=true")
         for cit in c.citations:
             if cit.ref not in retrieved:
-                problems.append(f"claim {i} cites {cit.ref!r}, which was not retrieved; "
-                                "fetch it with get_segment first")
+                problems.append(
+                    f"claim {i} cites {cit.ref!r}, which was not retrieved; "
+                    "fetch it with get_segment first"
+                )
     if problems:
         return None, "; ".join(problems)
     answer.is_psak = False
@@ -112,7 +114,10 @@ class Harness:
             steps += 1
             try:
                 resp: LLMResponse = self.llm.complete(
-                    messages, specs, model=cfg.model, temperature=cfg.temperature,
+                    messages,
+                    specs,
+                    model=cfg.model,
+                    temperature=cfg.temperature,
                     max_tokens=cfg.max_tokens,
                 )
             except Exception as e:  # noqa: BLE001 - recorded, not raised
@@ -131,8 +136,11 @@ class Harness:
             for call in resp.tool_calls:
                 answer, result = self._handle(call, calls_log, rejected)
                 messages.append(
-                    {"role": "tool", "tool_call_id": call.id,
-                     "content": json.dumps(result, ensure_ascii=False)}
+                    {
+                        "role": "tool",
+                        "tool_call_id": call.id,
+                        "content": json.dumps(result, ensure_ascii=False),
+                    }
                 )
                 if answer is not None:
                     break
@@ -141,10 +149,18 @@ class Harness:
                 break
 
         res = HarnessResult(
-            question=question, answer=answer, retrieved_refs=list(self.tools.retrieved_refs),
-            tool_calls=calls_log, messages=messages, model=model, steps=steps,
-            input_tokens=tokens_in, output_tokens=tokens_out, cost_usd=cost,
-            latency_ms=int((time.perf_counter() - t0) * 1000), error=error,
+            question=question,
+            answer=answer,
+            retrieved_refs=list(self.tools.retrieved_refs),
+            tool_calls=calls_log,
+            messages=messages,
+            model=model,
+            steps=steps,
+            input_tokens=tokens_in,
+            output_tokens=tokens_out,
+            cost_usd=cost,
+            latency_ms=int((time.perf_counter() - t0) * 1000),
+            error=error,
             rejected_answers=rejected,
         )
         if self.recorder:
@@ -153,18 +169,19 @@ class Harness:
 
     def _handle(self, call: ToolCall, log: list, rejected: list[str]):
         if call.arguments_error:
-            log.append({"name": call.name, "arguments": call.raw_arguments,
-                        "error": call.arguments_error})
+            log.append(
+                {"name": call.name, "arguments": call.raw_arguments, "error": call.arguments_error}
+            )
             return None, {"error": call.arguments_error}
         if call.name == SUBMIT:
             ans, err = validate_answer(call.arguments, set(self.tools.retrieved_refs))
-            log.append({"name": SUBMIT, "arguments": call.arguments,
-                        "error": err or None})
+            log.append({"name": SUBMIT, "arguments": call.arguments, "error": err or None})
             if ans is None:
                 rejected.append(err)
                 return None, {"accepted": False, "error": err}
             return ans, {"accepted": True}
         result, ms = timed_call(self.tools, call.name, call.arguments)
-        log.append({"name": call.name, "arguments": call.arguments, "ms": ms,
-                    "error": result.get("error")})
+        log.append(
+            {"name": call.name, "arguments": call.arguments, "ms": ms, "error": result.get("error")}
+        )
         return None, result

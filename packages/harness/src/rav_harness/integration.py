@@ -1,55 +1,45 @@
-"""Glue to rav-evals (answer_fn + DB-backed SourceStore) and to the ``runs`` table."""
+"""Glue to rav-evals (``answer_fn``; store and normalizer come from rav-evals) and ``runs``."""
 
 from __future__ import annotations
 
 from collections.abc import Callable
 
-from rav_ai.lookup import get_texts, may_display
+from rav_ai.db.models import Run
 from rav_evals.golden import GoldenQuestion, GoldenSet
+from rav_evals.normalization import normalize
+from rav_evals.pg_store import PostgresSourceStore
 from rav_evals.runner import AnswerFn, EvalReport, RunOutput, run_eval
 from sqlalchemy.orm import Session
-from textnorm import normalize
 
 from .config import HarnessConfig
 from .llm import LLM
 from .loop import Harness, HarnessResult
 from .prompt import PROMPT_VERSION, prompt_hash
-from .runs import Run, save_run
 from .tools import CorpusTools
-
-
-def verifier_normalizer(s: str) -> str:
-    """Normalizer for the verifier: strip Sefaria markup, level B (punctuation-insensitive)."""
-    return normalize(s, "B", markup="sefaria").text
-
-
-class DbSourceStore:
-    """rav-evals ``SourceStore``: displayable text of all versions of a ref, joined."""
-
-    def __init__(self, session: Session, mode: str | None = None):
-        self.session, self.mode = session, mode
-
-    def get_text(self, ref: str) -> str | None:
-        rows = get_texts(self.session, ref)
-        if not rows:
-            return None
-        return "\n".join(
-            r.text_raw for r in rows if may_display(r.can_index, r.can_display_public, self.mode)
-        )
 
 
 def db_recorder(session: Session) -> Callable[[HarnessResult, str | None, str | None], str]:
     def record(res: HarnessResult, question_id: str | None, golden_version: str | None) -> str:
         run = Run(
-            question_text=res.question, question_id=question_id, golden_version=golden_version,
-            model=res.model, prompt_version=PROMPT_VERSION, prompt_hash=prompt_hash(),
-            messages=res.messages, retrieved_sources=res.retrieved_refs,
+            question_text=res.question,
+            question_id=question_id,
+            golden_version=golden_version,
+            model=res.model,
+            prompt_version=PROMPT_VERSION,
+            prompt_hash=prompt_hash(),
+            messages=res.messages,
+            retrieved_sources=res.retrieved_refs,
             tool_calls=res.tool_calls,
             answer=res.answer.model_dump(mode="json") if res.answer else None,
-            error=res.error, latency_ms=res.latency_ms, steps=res.steps,
-            input_tokens=res.input_tokens, output_tokens=res.output_tokens, cost_usd=res.cost_usd,
+            error=res.error,
+            latency_ms=res.latency_ms,
+            steps=res.steps,
+            input_tokens=res.input_tokens,
+            output_tokens=res.output_tokens,
+            cost_usd=res.cost_usd,
         )
-        save_run(session, run)
+        session.add(run)
+        session.commit()
         return run.id
 
     return record
@@ -85,16 +75,24 @@ def make_answer_fn(
         if res.answer is None:
             raise RuntimeError(res.error or "harness produced no answer")
         return RunOutput(
-            answer=res.answer, retrieved_refs=res.retrieved_refs, model=res.model,
+            answer=res.answer,
+            retrieved_refs=res.retrieved_refs,
+            model=res.model,
             tool_calls=res.tool_calls,
+            prompt_version=PROMPT_VERSION,
+            prompt_hash=prompt_hash(),
         )
 
     return answer_fn
 
 
 def run_golden(
-    session: Session, golden: GoldenSet, llm: LLM, config: HarnessConfig | None = None,
-    *, record: bool = True,
+    session: Session,
+    golden: GoldenSet,
+    llm: LLM,
+    config: HarnessConfig | None = None,
+    *,
+    record: bool = True,
 ) -> EvalReport:
     """Run the harness over a golden set, verify with rav-evals, and write the verifier
     outcome (and golden version) back onto each run row."""
@@ -102,8 +100,8 @@ def run_golden(
     report = run_eval(
         golden,
         make_answer_fn(session, llm, config, record=record, run_ids=run_ids),
-        DbSourceStore(session),
-        normalize=verifier_normalizer,
+        PostgresSourceStore(session.get_bind()),
+        normalize=normalize,
     )
     if record:
         for r in report.results:

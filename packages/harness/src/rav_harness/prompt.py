@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import hashlib
+from rav_evals.models import prompt_hash as _sha256
 
 PROMPT_VERSION = "v0"
 
@@ -35,4 +35,4 @@ Rules for the answer (submit_answer):
 
 
 def prompt_hash() -> str:
-    return hashlib.sha256(SYSTEM_PROMPT.encode("utf-8")).hexdigest()
+    return _sha256(SYSTEM_PROMPT)

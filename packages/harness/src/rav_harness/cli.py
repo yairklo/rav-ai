@@ -34,8 +34,10 @@ def main(argv: list[str] | None = None) -> int:
         res = build_harness(session, llm, cfg, record=not args.no_record).run(args.question)
         out = res.answer.model_dump(mode="json") if res.answer else {"error": res.error}
         print(json.dumps(out, ensure_ascii=False, indent=2))
-        print(f"steps={res.steps} tokens={res.input_tokens}+{res.output_tokens} "
-              f"cost={res.cost_usd} run={res.run_id}")
+        print(
+            f"steps={res.steps} tokens={res.input_tokens}+{res.output_tokens} "
+            f"cost={res.cost_usd} run={res.run_id}"
+        )
         return 0 if res.answer else 1
     report = run_golden(session, load_golden(args.golden), llm, cfg, record=not args.no_record)
     jp, mp = report.write(args.out_dir)

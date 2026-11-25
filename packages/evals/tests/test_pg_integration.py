@@ -64,13 +64,24 @@ def test_verifier_end_to_end_against_postgres(corpus):
     assert blocked.failure_codes() == ["V1:ref_not_found"]
 
 
+def _alembic_head() -> str:
+    from alembic.config import Config
+    from alembic.script import ScriptDirectory
+    from rav_ai.config import ROOT
+
+    cfg = Config(str(ROOT / "alembic.ini"))
+    cfg.set_main_option("script_location", str(ROOT / "alembic"))
+    return ScriptDirectory.from_config(cfg).get_current_head()
+
+
 def test_runs_migration_matches_model(corpus):
     insp = inspect(corpus)
     assert "runs" in insp.get_table_names()
     cols = {c["name"] for c in insp.get_columns("runs")}
     assert cols == {c.name for c in Run.__table__.columns}
     with corpus.connect() as c:
-        assert c.execute(text("SELECT version_num FROM alembic_version")).scalar() == "0002"
+        applied = c.execute(text("SELECT version_num FROM alembic_version")).scalar()
+    assert applied == _alembic_head()  # the DB is migrated to head, whatever head is
 
 
 def test_run_logging_roundtrip(corpus):

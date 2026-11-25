@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+from rav_ai.db.models import Run, Segment, SegmentText, Version, Work
 from rav_evals.golden import GoldenQuestion, GoldenSet
+from rav_evals.pg_store import PostgresSourceStore
 
 from conftest import BER_TEXT, FakeLLM, answer_args, call, reply
 from rav_harness import HarnessConfig
-from rav_harness.integration import DbSourceStore, build_harness, run_golden
-from rav_harness.runs import Run
+from rav_harness.integration import build_harness, make_answer_fn, run_golden
+from rav_harness.prompt import PROMPT_VERSION, prompt_hash
 from rav_harness.tools import CorpusTools
 
 
@@ -47,13 +49,13 @@ def test_neighbors_layers_and_edge_filter(session):
 
 def test_search_text_ranks_and_dedupes(session):
     t = CorpusTools(session, mode="personal")
-    r = t.search_text('מאימתי קורין את שמע בערבין?')
+    r = t.search_text("מאימתי קורין את שמע בערבין?")
     assert r["results"][0]["ref"] == "Berakhot 2a:1"
     assert t.search_text("???")["results"] == []
 
 
 def test_resolve_citation_uses_textnorm_and_checks_existence(session):
-    r = CorpusTools(session).resolve_citation("עיין בברכות ב ע\"א")
+    r = CorpusTools(session).resolve_citation('עיין בברכות ב ע"א')
     assert r["citations"], r
     c = r["citations"][0]
     assert c["ref"] == "Berakhot 2a" and c["exists"] is True
@@ -61,8 +63,12 @@ def test_resolve_citation_uses_textnorm_and_checks_existence(session):
 
 
 def test_every_run_is_recorded_with_messages_tools_tokens_cost(session):
-    llm = FakeLLM([reply(call("get_segment", ref="Berakhot 2a:1")),
-                   reply(call("submit_answer", "c2", **answer_args()), cost=0.02)])
+    llm = FakeLLM(
+        [
+            reply(call("get_segment", ref="Berakhot 2a:1")),
+            reply(call("submit_answer", "c2", **answer_args()), cost=0.02),
+        ]
+    )
     res = build_harness(session, llm, HarnessConfig()).run("מתי?", question_id="q7")
     run = session.get(Run, res.run_id)
     assert run.question_id == "q7" and run.model == "fake/model" and run.error is None
@@ -81,14 +87,24 @@ def test_failed_runs_are_recorded_too(session):
 
 
 def _golden(*ids):
-    return GoldenSet(version="g-test", questions=[
-        GoldenQuestion(id=i, question="מתי קוראים קריאת שמע?", category="direct_source",
-                       difficulty="easy") for i in ids])
+    return GoldenSet(
+        version="g-test",
+        questions=[
+            GoldenQuestion(
+                id=i, question="מתי קוראים קריאת שמע?", category="direct_source", difficulty="easy"
+            )
+            for i in ids
+        ],
+    )
 
 
 def test_answer_fn_plugs_into_evals_and_verifier_passes_a_real_quote(session):
-    llm = FakeLLM([reply(call("get_segment", ref="Berakhot 2a:1")),
-                   reply(call("submit_answer", **answer_args()))])
+    llm = FakeLLM(
+        [
+            reply(call("get_segment", ref="Berakhot 2a:1")),
+            reply(call("submit_answer", **answer_args())),
+        ]
+    )
     report = run_golden(session, _golden("q1"), llm, HarnessConfig())
     r = report.results[0]
     assert r.error is None and r.verification.passed, r.verification
@@ -98,24 +114,107 @@ def test_answer_fn_plugs_into_evals_and_verifier_passes_a_real_quote(session):
 
 
 def test_verifier_catches_a_fabricated_quote(session):
-    bad = answer_args(claims=[{
-        "type": "quote", "text": "x",
-        "citations": [{"ref": "Berakhot 2a:1", "quoted_text": "דברים שלא נאמרו מעולם"}]}])
-    llm = FakeLLM([reply(call("get_segment", ref="Berakhot 2a:1")),
-                   reply(call("submit_answer", **bad))])
+    bad = answer_args(
+        claims=[
+            {
+                "type": "quote",
+                "text": "x",
+                "citations": [{"ref": "Berakhot 2a:1", "quoted_text": "דברים שלא נאמרו מעולם"}],
+            }
+        ]
+    )
+    llm = FakeLLM(
+        [reply(call("get_segment", ref="Berakhot 2a:1")), reply(call("submit_answer", **bad))]
+    )
     report = run_golden(session, _golden("q2"), llm, HarnessConfig())
     assert report.results[0].verification.failure_codes() == ["V2:quote_not_in_source"]
     assert session.query(Run).filter_by(question_id="q2").one().verification_passed is False
 
 
 def test_answer_fn_raises_when_no_answer_so_run_eval_marks_error(session):
-    report = run_golden(session, _golden("q3"), FakeLLM([reply(content="x")] * 2),
-                        HarnessConfig(max_steps=2))
+    report = run_golden(
+        session, _golden("q3"), FakeLLM([reply(content="x")] * 2), HarnessConfig(max_steps=2)
+    )
     assert report.results[0].error is not None
 
 
-def test_db_source_store_respects_license(session):
-    store = DbSourceStore(session, mode="public")
-    assert store.get_text("Berakhot 2a:1") == BER_TEXT
-    assert store.get_text("NC Book 1:1") == ""  # exists, nothing displayable
+def test_blocked_ref_is_absent_for_the_verifier_not_empty(session):
+    """Regression: a ref whose every version is blocked used to come back as "" (= exists)."""
+    store = PostgresSourceStore(session.get_bind())
+    assert store.get_text("Berakhot 2a:1")  # indexable text
+    assert store.get_text("Secret Book 1:1") is None  # can_index=False everywhere
     assert store.get_text("Nope") is None
+
+
+def test_answer_fn_passes_prompt_version_and_hash_to_run_output(session):
+    llm = FakeLLM(
+        [
+            reply(call("get_segment", ref="Berakhot 2a:1")),
+            reply(call("submit_answer", **answer_args())),
+        ]
+    )
+    fn = make_answer_fn(session, llm, HarnessConfig())
+    out = fn(_golden("q9").questions[0])
+    assert out.prompt_version == PROMPT_VERSION and out.prompt_hash == prompt_hash()
+    run = session.query(Run).filter_by(question_id="q9").one()
+    assert (run.prompt_version, run.prompt_hash) == (out.prompt_version, out.prompt_hash)
+
+
+def test_search_text_filters_blocked_versions_before_the_limit(session):
+    """All top-ranked candidates are blocked: they must not crowd out the allowed result."""
+    secret_v = session.query(Version).filter_by(version_title="Secret").one()
+    work = session.get(Work, secret_v.work_id)
+    for i in range(8):
+        seg = Segment(
+            ref=f"Secret Book 9:{i}",
+            work_id=work.id,
+            node_path=[],
+            section_path=[],
+            indices=[],
+            section_names=[],
+            sort_key=f"9:{i}",
+            parent_ref="Secret Book 9",
+        )
+        session.add(seg)
+        session.flush()
+        body = " ".join(["זרובבל"] * 30)  # far stronger match than the allowed segment
+        session.add(
+            SegmentText(
+                segment_id=seg.id,
+                version_id=secret_v.id,
+                text_raw=body,
+                raw_hash=f"s{i}",
+                text_a=body,
+                text_b=body,
+                offsets_a=b"",
+                offsets_b=b"",
+            )
+        )
+    pd = session.query(Version).filter_by(version_title="PD").one()
+    allowed = Segment(
+        ref="Berakhot 9:1",
+        work_id=pd.work_id,
+        node_path=[],
+        section_path=[],
+        indices=[],
+        section_names=[],
+        sort_key="9:1",
+        parent_ref="Berakhot 9",
+    )
+    session.add(allowed)
+    session.flush()
+    session.add(
+        SegmentText(
+            segment_id=allowed.id,
+            version_id=pd.id,
+            text_raw="זרובבל",
+            raw_hash="allowed",
+            text_a="זרובבל",
+            text_b="זרובבל",
+            offsets_a=b"",
+            offsets_b=b"",
+        )
+    )
+    session.commit()
+    res = CorpusTools(session, mode="personal").search_text("זרובבל", limit=1)
+    assert [r["ref"] for r in res["results"]] == ["Berakhot 9:1"]

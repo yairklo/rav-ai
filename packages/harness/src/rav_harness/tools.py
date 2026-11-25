@@ -110,12 +110,16 @@ class CorpusTools:
     def get_segment(self, ref: str) -> dict[str, Any]:
         rows = get_texts(self.session, ref)
         if not rows:
-            children = self.session.execute(
-                sa.text(
-                    "SELECT ref FROM segments WHERE parent_ref = :r ORDER BY sort_key LIMIT 60"
-                ),
-                {"r": ref},
-            ).scalars().all()
+            children = (
+                self.session.execute(
+                    sa.text(
+                        "SELECT ref FROM segments WHERE parent_ref = :r ORDER BY sort_key LIMIT 60"
+                    ),
+                    {"r": ref},
+                )
+                .scalars()
+                .all()
+            )
             return {
                 "found": False,
                 "ref": ref,
@@ -190,11 +194,13 @@ class CorpusTools:
             sa.text(f"""
             SELECT s.ref, w.title, w.period, v.language, t.text_a, r.rank FROM (
               SELECT t.id, ts_rank(to_tsvector('simple', t.text_b), q) AS rank
-              FROM segment_text t, to_tsquery('simple', :q) q
+              FROM segment_text t
+              JOIN versions v ON v.id = t.version_id AND {gate},
+              to_tsquery('simple', :q) q
               WHERE to_tsvector('simple', t.text_b) @@ q
               ORDER BY rank DESC LIMIT :cand) r
             JOIN segment_text t ON t.id = r.id
-            JOIN versions v ON v.id = t.version_id AND {gate}
+            JOIN versions v ON v.id = t.version_id
             JOIN segments s ON s.id = t.segment_id JOIN works w ON w.id = s.work_id
             ORDER BY r.rank DESC, v.is_primary DESC, s.ref"""),
             {"q": " | ".join(tokens), "cand": max(1, min(limit, 50)) * 5},
@@ -233,13 +239,17 @@ class CorpusTools:
                 "exists": False,
             }
             if c.id:
-                hit = self.session.execute(
-                    sa.text(
-                        "SELECT ref FROM segments WHERE ref = :r OR parent_ref = :r "
-                        "ORDER BY sort_key LIMIT 10"
-                    ),
-                    {"r": c.id},
-                ).scalars().all()
+                hit = (
+                    self.session.execute(
+                        sa.text(
+                            "SELECT ref FROM segments WHERE ref = :r OR parent_ref = :r "
+                            "ORDER BY sort_key LIMIT 10"
+                        ),
+                        {"r": c.id},
+                    )
+                    .scalars()
+                    .all()
+                )
                 item["exists"] = bool(hit)
                 if hit and hit[0] != c.id:
                     item["segment_refs"] = list(hit)
