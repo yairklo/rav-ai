@@ -3,10 +3,13 @@ only the registry rows exist (placeholder ``works`` rows with no versions, so FK
 
 from __future__ import annotations
 
+import tomllib
+from pathlib import Path
 from typing import Literal
 
 from pydantic import TypeAdapter
-from rav_ai.db.models import KlSource, Work
+from rav_ai.config import ROOT
+from rav_ai.db.models import KL_TIERS, KlSource, Version, Work
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -137,3 +140,94 @@ def register_work(
     src.weight_tier, src.note, src.authority_areas = weight_tier, note, areas
     s.flush()
     return src
+
+
+# ---- reproducible registry seed (config/kl_sources_seed.toml) --------------------------------
+
+SEED_PATH = ROOT / "config" / "kl_sources_seed.toml"
+_LICENSE_RANK = {"PUBLIC_COMMERCIAL": 0, "NON_COMMERCIAL_ONLY": 1, "PERSONAL_ONLY_RESTRICTED": 2}
+_WEIGHT_TIERS = ("core", "major", "extended", "long_tail")
+_ROLES = ("primary", "lens", "witness", "reference_only")
+
+
+def load_seed(path: Path | None = None) -> dict:
+    """Parse and validate the seed file (no DB). Raises ValueError on a malformed entry."""
+    raw = tomllib.loads((path or SEED_PATH).read_text(encoding="utf-8"))
+    entries, skipped = raw.get("source", []), raw.get("not_registered", [])
+    titles = [e.get("title") for e in entries] + [e.get("title") for e in skipped]
+    if len(titles) != len(set(titles)):
+        raise ValueError("seed: a title appears twice")
+    for e in entries:
+        t = e.get("title")
+        if e.get("tier") not in KL_TIERS:
+            raise ValueError(f"seed {t!r}: tier {e.get('tier')!r} not in {KL_TIERS}")
+        if e.get("role") not in _ROLES:
+            raise ValueError(f"seed {t!r}: role {e.get('role')!r}")
+        if e.get("license_tier") not in _LICENSE_RANK:
+            raise ValueError(f"seed {t!r}: license_tier is required ({list(_LICENSE_RANK)})")
+        if e.get("weight_tier") not in (None, *_WEIGHT_TIERS):
+            raise ValueError(f"seed {t!r}: weight_tier {e.get('weight_tier')!r}")
+        validate_authority_areas(e.get("authority_areas"))
+    for e in skipped:
+        if not e.get("reason"):
+            raise ValueError(f"seed not_registered {e.get('title')!r}: a reason is required")
+    return {"source": entries, "not_registered": skipped}
+
+
+def required_license_tier(s: Session, work: Work) -> tuple[str | None, list[str]]:
+    """The loosest license_tier the work's indexable versions allow (= its most restrictive one),
+    from Sefaria's per-version declaration via the license-policy flags. None: no indexable
+    version (unknown / missing license everywhere) -> must not be registered."""
+    need, basis = None, []
+    for v in s.scalars(select(Version).where(Version.work_id == work.id).order_by(Version.id)):
+        basis.append(f"{v.version_title}: {v.license or 'none'}")
+        if not v.can_index:
+            continue  # unknown / missing license: excluded per version anyway (fail-closed)
+        t = "PUBLIC_COMMERCIAL" if v.can_display_public else "NON_COMMERCIAL_ONLY"
+        if need is None or _LICENSE_RANK[t] > _LICENSE_RANK[need]:
+            need = t
+    return need, basis
+
+
+def seed_sources(
+    s: Session, path: Path | None = None, *, dry_run: bool = False, added_by: str = "seed"
+) -> dict:
+    """Register every seed entry whose work exists and whose declared license_tier is not looser
+    than its versions allow. Idempotent; refuses (and reports) everything else."""
+    seed = load_seed(path)
+    out: dict[str, list] = {"registered": [], "refused": [], "not_registered": []}
+    for e in seed["source"]:
+        t = e["title"]
+        w = s.scalars(select(Work).where(Work.title == t)).first()
+        if w is None:
+            out["refused"].append({"title": t, "reason": "work not in the corpus"})
+            continue
+        need, basis = required_license_tier(s, w)
+        if need is None:
+            out["refused"].append({"title": t, "reason": f"no indexable version: {basis}"})
+            continue
+        if _LICENSE_RANK[e["license_tier"]] < _LICENSE_RANK[need]:
+            out["refused"].append(
+                {"title": t, "reason": f"declared {e['license_tier']} looser than {need}: {basis}"}
+            )
+            continue
+        row = {k: e.get(k) for k in ("title", "tier", "role", "license_tier", "weight_tier")}
+        out["registered"].append(row)
+        if dry_run:
+            continue
+        src = register_work(
+            s,
+            t,
+            tier=e["tier"],
+            role=e["role"],
+            license_tier=e["license_tier"],
+            weight_tier=e.get("weight_tier"),
+            authority_areas=e.get("authority_areas"),
+            note=f"core-books-draft {e.get('draft', '')}".strip(),
+            added_by=added_by,
+        )
+        src.license_basis = "Sefaria: " + "; ".join(basis)
+    for e in seed["not_registered"]:
+        out["not_registered"].append({"title": e["title"], "reason": e["reason"]})
+    s.flush()
+    return out

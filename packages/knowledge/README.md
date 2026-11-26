@@ -16,6 +16,7 @@ rav-kl run s1 "Shabbat 21a-24a" --dry-run | --budget-usd 5
 rav-kl report --job N ; rav-kl promote --job N [--force "why"]   # rollback = promote an old job
 rav-kl invalidate [--segments 1,2]                       # re-anchor, stale only if the quote is gone
 rav-kl register-work "Shabbat" --tier canonical --role primary --license-tier PUBLIC_COMMERCIAL   # fail-closed registry: the license tier is required
+rav-kl seed-sources [--dry-run]                          # kl_sources from config/kl_sources_seed.toml (license re-checked per version)
 rav-kl seed-lenses ; rav-kl conflicts ; rav-kl status
 ```
 
@@ -39,7 +40,11 @@ Config: `config/knowledge.toml` (models per stage, second model, prices - placeh
   jobs never mix on resume.
 - A usage / rate limit stops the run cleanly: the task's writes are rolled back, it goes back to
   `pending`, the job is `aborted`, and the resume command is printed (exit 3). `--limit N` runs at
-  most N new tasks and stops the same way.
+  most N new tasks that call the LLM (the deterministic S1 merge does not count) and stops the same
+  way. The printed resume command names the backend (`RAV_KL_BACKEND=...` / `$env:RAV_KL_BACKEND`).
+- An argv over the OS limit (cmd.exe 8191, CreateProcess 32767, Linux 128 KiB per argument) stops
+  the run with `CLICommandTooLong` before spawning; an npm `claude.cmd` shim without the
+  `claude.exe` next to it is refused (set `RAV_KL_CLAUDE_BIN`).
 
 ```
 $env:RAV_KL_BACKEND = "claude_cli"

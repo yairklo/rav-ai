@@ -67,6 +67,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument("--authority-areas", help="comma-separated, from the closed list")
     p.add_argument("--weight-tier", choices=["core", "major", "extended", "long_tail"])
+    p = sub.add_parser(
+        "seed-sources", help="register works from config/kl_sources_seed.toml (license re-checked)"
+    )
+    p.add_argument("--file", help="seed file (default config/kl_sources_seed.toml)")
+    p.add_argument("--dry-run", action="store_true")
     sub.add_parser("conflicts", help="human decisions that a later output disagreed with")
     a = ap.parse_args(argv)
 
@@ -148,6 +153,15 @@ def main(argv: list[str] | None = None) -> int:
             )
             s.commit()
             print(f"registered work_id={src.work_id} tier={src.tier} role={src.role}")
+    elif a.cmd == "seed-sources":
+        from .sources import seed_sources
+
+        with Session(engine) as s:
+            res = seed_sources(s, Path(a.file) if a.file else None, dry_run=a.dry_run)
+            if not a.dry_run:
+                s.commit()
+        print(json.dumps(res, ensure_ascii=False, indent=2))
+        return 1 if res["refused"] else 0
     elif a.cmd == "conflicts":
         with engine.connect() as c:
             for row in c.execute(text("SELECT * FROM kl_conflicts ORDER BY override_id")):

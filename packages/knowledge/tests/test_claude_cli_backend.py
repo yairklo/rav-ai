@@ -38,6 +38,8 @@ def fake(tmp_path, monkeypatch):
     log = tmp_path / "calls.jsonl"
     monkeypatch.setenv("FAKE_CLAUDE_LOG", str(log))
     monkeypatch.setenv("ANTHROPIC_API_KEY", "must-not-reach-the-cli")
+    monkeypatch.setenv("ANTHROPIC_AUTH_TOKEN", "must-not-reach-the-cli-either")
+    monkeypatch.setenv("FAKE_CLAUDE_AUTH_LOG", str(tmp_path / "auth.jsonl"))
 
     class F:
         def set(self, scenario: str = "ok", auth: str = "ok") -> ClaudeCLIClient:
@@ -46,6 +48,12 @@ def fake(tmp_path, monkeypatch):
             monkeypatch.setenv("FAKE_CLAUDE_STATE", str(state))
             monkeypatch.setenv("FAKE_CLAUDE_AUTH", auth)
             return ClaudeCLIClient(cmd=[sys.executable, str(FAKE)], timeout=120)
+
+        def auth_log(self) -> list[dict]:
+            p = tmp_path / "auth.jsonl"
+            if not p.exists():
+                return []
+            return [json.loads(x) for x in p.read_text(encoding="utf-8").splitlines()]
 
         def log(self) -> list[dict]:
             if not log.exists():
@@ -258,7 +266,8 @@ def test_usage_limit_stops_cleanly_and_resumes(world, fake):
     c = cli_cfg()
     r = run(world.engine, "s2", fake.set("ok,limit"), config=c)
     assert r.status == "aborted" and r.failed == 0 and r.done == 1
-    assert "UsageLimitError" in r.stopped and r.resume.startswith('rav-kl run s2 "')
+    assert "UsageLimitError" in r.stopped and 'rav-kl run s2 "' in r.resume
+    assert "RAV_KL_BACKEND" in r.resume and "claude_cli" in r.resume  # backend explicit
     ts = tasks(world.engine, r.job_id)
     states = sorted(t.state for t in ts.values())
     assert states == ["done", "pending", "pending"]  # the hit task is pending, not failed
@@ -317,8 +326,95 @@ def test_rav_kl_run_limit_prints_resume(world, fake, monkeypatch, capsys):
     capsys.readouterr()
     rc = rav_kl(["--db", world.engine.test_url, "run", "s1", SCOPE, "--limit", "1"])
     err = capsys.readouterr().err
-    assert rc == 3 and "resume with: rav-kl run s1" in err and len(fake.log()) == 1
+    assert rc == 3 and "resume with: " in err and "rav-kl run s1" in err
+    assert "RAV_KL_BACKEND" in err and len(fake.log()) == 1
 
 
 def _flag(argv: list[str], flag: str) -> str:
     return argv[argv.index(flag) + 1]
+
+
+# ---- follow-up fixes ---------------------------------------------------------------------------
+
+
+def test_is_error_with_valid_structured_output_is_a_failure(fake):
+    msgs = [
+        {"role": "system", "content": "s"},
+        {"role": "user", "content": "[S1|canonical|Shabbat] Shabbat 21a:1 ⟩ אמר רב"},
+    ]
+    r = fake.set("iserror_valid").complete(
+        msgs, [tool_def("sugya")], model="opus", temperature=0, max_tokens=1
+    )
+    (tc,) = r.tool_calls
+    assert tc.arguments == {} and "is_error=True" in tc.arguments_error  # never accepted
+    res = call_tool(fake.set("iserror_valid"), cfg(), "anthropic/claude-opus-5-5", msgs, "sugya")
+    assert res.args is None and "claude_cli call failed" in res.error
+
+
+def test_provider_keys_never_reach_auth_status_or_calls(fake):
+    fake.set(auth="ok").ensure_logged_in()
+    (rec,) = fake.auth_log()
+    assert rec["argv"][:2] == ["auth", "status"] and rec["keys_visible"] == []
+    fake.set("ok").complete(
+        [{"role": "system", "content": "s"}, {"role": "user", "content": "Shabbat 21a:1"}],
+        [tool_def("sugya")],
+        model="opus",
+        temperature=0,
+        max_tokens=1,
+    )
+    (call,) = fake.log()
+    assert call["api_key_visible"] is False and call["auth_token_visible"] is False
+
+
+def test_argv_too_long_fails_clearly(monkeypatch):
+    huge = "x" * 200_000
+    with pytest.raises(backends.CLICommandTooLong, match="too large"):
+        backends.check_argv(["claude.exe", "--json-schema", huge])
+    backends.check_argv(["claude.exe", "--json-schema", "x" * 3000])  # a real schema fits
+    monkeypatch.setattr(backends.os, "name", "nt")
+    with pytest.raises(backends.CLICommandTooLong, match="CreateProcess"):
+        backends.check_argv(["C:/x/claude.exe", "x" * 33_000])
+    with pytest.raises(backends.CLICommandTooLong, match="cmd.exe"):
+        backends.check_argv(["C:/x/claude.cmd", "x" * 9_000])
+    backends.check_argv(["C:/x/claude.exe", "x" * 9_000])  # fine for the real exe
+
+
+def test_too_long_argv_stops_the_run_cleanly(world, fake, monkeypatch):
+    monkeypatch.setattr(backends, "_POSIX_ARG_MAX", 400)  # above --version, below the schema
+    monkeypatch.setattr(backends, "_WIN_EXE_MAX", 400)
+    run(world.engine, "s0", None)
+    r = run(world.engine, "s1", fake.set("ok"), config=cli_cfg())
+    assert r.status == "aborted" and r.failed == 0 and "CLICommandTooLong" in r.stopped
+    assert fake.log() == []  # nothing was spawned
+
+
+def test_cmd_shim_without_exe_is_refused(tmp_path, monkeypatch):
+    shim = tmp_path / "claude.cmd"
+    shim.write_text("@echo off\n")
+    monkeypatch.setattr(backends.shutil, "which", lambda name: str(shim))
+    with pytest.raises(backends.CLINotFound, match="no claude.exe next to it"):
+        backends.resolve_bin("claude")
+    exe = tmp_path / "node_modules" / "@anthropic-ai" / "claude-code" / "bin" / "claude.exe"
+    exe.parent.mkdir(parents=True)
+    exe.write_text("")
+    assert backends.resolve_bin("claude") == str(exe)
+
+
+def test_limit_counts_only_tasks_that_call_the_llm(world):
+    run(world.engine, "s0", None)
+    llm = ScriptedLLM(s1_responder())
+    r = run(world.engine, "s1", llm, limit=2)  # two windows (LLM) + the merge (deterministic)
+    assert llm.n == 2 and r.done == 3 and r.status == "done" and r.stopped is None
+
+
+def test_resume_command_names_the_backend(monkeypatch):
+    from rav_knowledge.runner import resume_command
+
+    monkeypatch.setattr("rav_knowledge.runner.os.name", "posix")
+    assert resume_command("s2", "Shabbat 21a", "claude_cli", 3) == (
+        'RAV_KL_BACKEND=claude_cli rav-kl run s2 "Shabbat 21a" --limit 3'
+    )
+    monkeypatch.setattr("rav_knowledge.runner.os.name", "nt")
+    assert resume_command("s1", "Shabbat 21a", "api") == (
+        '$env:RAV_KL_BACKEND = "api"; rav-kl run s1 "Shabbat 21a"'
+    )
