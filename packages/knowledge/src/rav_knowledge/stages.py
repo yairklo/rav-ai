@@ -839,6 +839,9 @@ class S2:
         # second model on a deterministic ~fraction of tasks: shadow output, never current
         frac = rc.cfg.second_model_fraction
         if rc.cfg.second_model and int(sha(spec.key)[:8], 16) % 1000 < frac * 1000:
+            if rc.cfg.backend != "api":  # never fall back to the API path silently
+                out.stats["second_model_skipped"] = 1
+                return out
             g2 = self._run_model(rc, s, sg, inp, rc.cfg.second_model, out.usage)
             it2 = self._store(rc, s, sg, inp, spec, g2, rc.cfg.second_model, shadow=True)
             out.item_ids.append(it2.id)

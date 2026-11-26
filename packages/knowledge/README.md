@@ -20,7 +20,31 @@ rav-kl seed-lenses ; rav-kl conflicts ; rav-kl status
 ```
 
 Config: `config/knowledge.toml` (models per stage, second model, prices - placeholders, thresholds,
-`mode`, `allow_personal_only`, `use_steinsaltz_aid`, `anchor_format`).
+`mode`, `allow_personal_only`, `use_steinsaltz_aid`, `anchor_format`, `backend`).
+
+### Backends (`kl.backend`, env `RAV_KL_BACKEND` overrides)
+
+- `api` (default): LiteLLM with a provider key (`ANTHROPIC_API_KEY` / `OPENAI_API_KEY`).
+- `claude_cli`: the local `claude` CLI on a Claude subscription, no API key (the key is even
+  removed from the child's environment). `rav-kl run` checks `claude auth status` first and stops
+  with "run `claude auth login`" otherwise. Binary: `kl.claude_cli_bin` / `RAV_KL_CLAUDE_BIN`
+  (on Windows the npm `claude.cmd` shim is resolved to `claude.exe`). One structured output per
+  call (`--json-schema` from the `submit_<kind>` tool, system prompt in a file, input on stdin, an
+  empty temp cwd); validation and the one retry are the same `call_tool` / `generate` path as the
+  API. Limits: no `temperature` / `max_tokens` flags (recorded in the job stats as
+  `unsupported_params`); `second_model` (another family) is skipped and counted as
+  `second_model_skipped`; `--budget-usd` is ignored. `cost_usd` is the CLI's `total_cost_usd`
+  (`cost_kind=subscription`), the reported model and CLI version are in `kl_jobs.stats` and per
+  task in `kl_tasks.result._llm`. `backend` is part of the params / input hash, so CLI and API
+  jobs never mix on resume.
+- A usage / rate limit stops the run cleanly: the task's writes are rolled back, it goes back to
+  `pending`, the job is `aborted`, and the resume command is printed (exit 3). `--limit N` runs at
+  most N new tasks and stops the same way.
+
+```
+$env:RAV_KL_BACKEND = "claude_cli"
+rav-kl run s0 "Shabbat 21a"; rav-kl run s0b "Shabbat 21a"; rav-kl run s1 "Shabbat 21a"; rav-kl run s2 "Shabbat 21a" --limit 5
+```
 
 ## Behaviour worth knowing
 

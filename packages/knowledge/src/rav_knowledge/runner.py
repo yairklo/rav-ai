@@ -24,6 +24,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
+from .backends import StopRun
 from .config import KLConfig, load_config
 from .evidence import SegText, reanchor
 from .stages import DAG, STAGES, RunContext, TaskSpec, stage_prompt
@@ -64,6 +65,8 @@ class RunReport:
     est_cost_usd: float | None = None
     stats: dict[str, Any] = field(default_factory=dict)
     errors: list[str] = field(default_factory=list)
+    stopped: str | None = None  # why the run stopped early (usage limit, --limit, auth)
+    resume: str | None = None  # the command that continues the same job
 
 
 def _now() -> datetime:
@@ -299,11 +302,17 @@ def run_stage(
     *,
     budget_usd: float | None = None,
     dry_run: bool = False,
+    limit: int | None = None,
 ) -> RunReport:
+    """``limit``: at most this many NEW tasks (LLM work) in this invocation; then the job stops as
+    'aborted' and the same command resumes it. A ``StopRun`` from the backend (usage limit, not
+    logged in) rolls back the task's writes, puts it back to 'pending' and stops the loop."""
     if stage not in STAGES:
         raise ValueError(f"stage {stage!r} is reserved in the DAG but not implemented (PR KL-2+)")
     st = STAGES[stage]
     budget = budget_usd if budget_usd is not None else (cfg.budget_usd or None)
+    if cfg.backend != "api":
+        budget = None  # a USD budget is an API-path control; the subscription has its own limits
     with Session(engine) as s:
         scope = load_scope(s, scope_key)
         model = None if stage == "s0" else cfg.model_for(stage)
@@ -339,6 +348,8 @@ def run_stage(
     with Session(engine) as s:
         spent = float(s.get(KlJob, job_id).cost_usd or 0.0)
     aborted = False
+    started = 0
+    drain = getattr(llm, "drain_calls", None)
     for sp in specs:
         with Session(engine) as s:
             t = s.scalars(
@@ -369,6 +380,11 @@ def run_stage(
             if budget and est is not None and spent + est > budget:
                 aborted = True
                 break
+            if limit is not None and started >= limit:
+                aborted = True
+                report.stopped = f"--limit {limit} reached"
+                break
+            started += 1
             t.state, t.attempts = "running", t.attempts + 1
             s.commit()
         try:
@@ -378,7 +394,11 @@ def run_stage(
                 t = s.scalars(
                     select(KlTask).where(KlTask.job_id == job_id, KlTask.task_key == sp.key)
                 ).one()
-                t.state, t.last_error, t.result = "done", None, out.result
+                result = out.result
+                calls = drain() if drain else []
+                if calls and (result is None or isinstance(result, dict)):
+                    result = {**(result or {}), "_llm": _task_llm_meta(llm, calls)}
+                t.state, t.last_error, t.result = "done", None, result
                 t.input_tokens, t.output_tokens = out.usage.input_tokens, out.usage.output_tokens
                 t.cost_usd = out.usage.cost_usd
                 t.updated_at = _now()
@@ -394,7 +414,22 @@ def run_stage(
                 rc.bump(k, v)
             if conflicts:
                 rc.bump("override_conflicts", conflicts)
+        except StopRun as e:  # the task's session was never committed: its writes are gone
+            if drain:
+                drain()
+            with Session(engine) as s:
+                t = s.scalars(
+                    select(KlTask).where(KlTask.job_id == job_id, KlTask.task_key == sp.key)
+                ).one()
+                t.state, t.last_error = "pending", f"{type(e).__name__}: {e}"[:2000]
+                t.updated_at = _now()
+                s.commit()
+            aborted = True
+            report.stopped = f"{type(e).__name__}: {e}"
+            break
         except Exception as e:  # noqa: BLE001 - a failed task must not stop the others
+            if drain:
+                drain()
             usage = getattr(e, "usage", None)
             with Session(engine) as s:
                 t = s.scalars(
@@ -425,11 +460,34 @@ def run_stage(
         ).one()
         job.input_tokens, job.output_tokens, job.cost_usd = int(agg[0]), int(agg[1]), float(agg[2])
         job.stats = {**rc.stats, "llm_calls": report.llm_calls, "skipped": report.skipped}
+        meta = getattr(llm, "job_meta", None)
+        if meta and stage != "s0":
+            job.stats = {**(job.stats or {}), **meta()}
+        if report.stopped:
+            job.stats = {**job.stats, "stopped": report.stopped}
         job.finished_at = _now()
         report.status = job.status
         report.stats = job.stats
         s.commit()
+    if aborted:
+        report.resume = f'rav-kl run {stage} "{scope_key}"' + (
+            f" --limit {limit}" if limit is not None else ""
+        )
+        if cfg.backend != "api":
+            report.resume += f"  (backend {cfg.backend}: same config / RAV_KL_BACKEND)"
     return report
+
+
+def _task_llm_meta(llm: Any, calls: list[dict]) -> dict:
+    """Per-task record of the backend calls (kl_tasks has no params/stats column)."""
+    return {
+        "backend": getattr(llm, "backend", "api"),
+        "calls": len(calls),
+        "models_reported": sorted({c["model_reported"] for c in calls if c.get("model_reported")}),
+        "cost_kind": "subscription",
+        "cli_cost_usd": round(sum(c.get("total_cost_usd") or 0.0 for c in calls), 6),
+        "failed_calls": [c.get("error") for c in calls if not c.get("ok")],
+    }
 
 
 # ---- promote ------------------------------------------------------------------------------
