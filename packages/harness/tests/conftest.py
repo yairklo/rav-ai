@@ -222,3 +222,14 @@ def seed(s: Session) -> None:
 
 
 __all__ = ["Base", "Callable", "FakeLLM", "answer_args", "call", "reply"]
+
+
+@pytest.fixture(autouse=True)
+def _no_real_known_gaps(monkeypatch, tmp_path, request):
+    """The harness reads config/known_gaps.toml (a real Ritva-on-Shabbat gap makes every Shabbat
+    22 question 'partial'). Unit tests run without it unless they ask for it explicitly."""
+    if "real_known_gaps" in request.keywords:
+        return
+    from rav_harness import knowledge_tools
+
+    monkeypatch.setattr(knowledge_tools, "KNOWN_GAPS_PATH", tmp_path / "none.toml")

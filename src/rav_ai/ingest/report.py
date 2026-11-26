@@ -9,7 +9,9 @@ from pathlib import Path
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
+from rav_ai import known_gaps
 from rav_ai.config import LicensePolicy
+from rav_ai.ingest import rnf_classify
 
 COLUMNS = [
     "book", "category", "period", "segments", "versions", "licenses", "versions_can_index",
@@ -41,6 +43,37 @@ UNRESOLVED_SQL = text("""
 SELECT b, count(*) FROM (SELECT book_a b FROM unresolved_links
   UNION ALL SELECT book_b FROM unresolved_links WHERE book_b IS DISTINCT FROM book_a) x
 GROUP BY b""")
+
+
+def rnf_section(engine: Engine, out_dir: Path, log) -> list[str]:
+    """Classification of the `ref_not_found` links not already explained (Zohar, Rav Hirsch)."""
+    rows = rnf_classify.classify_unresolved(engine, log)
+    with open(out_dir / "ref_not_found_classes.csv", "w", encoding="utf-8-sig", newline="") as f:
+        wr = csv.writer(f)
+        wr.writerow(["link_id", "class", "detail", "failing_book", "failing_citation"])
+        wr.writerows([r.link_id, r.cls, r.detail, r.book, r.citation] for r in rows)
+    md = ["### `ref_not_found` not explained by Zohar / Rav Hirsch: classification", ""]
+    md += rnf_classify.distribution_md("all", rows)
+    md += rnf_classify.distribution_md(
+        "stratified sample (20 per each of the 30 largest books + 200 random, seed 20261125)",
+        rnf_classify.stratified_sample(rows),
+    )
+    return md
+
+
+def known_gap_lines(ritva_ingested: int) -> list[str]:
+    """Report section from config/known_gaps.toml (external sources we could not ingest)."""
+    out = ["### Known external gaps (config/known_gaps.toml)", ""]
+    for g in known_gaps.load():
+        state = "ingested" if g.ingested else "not ingested (לא נקלט)"
+        out.append(
+            f"- **{g.work}** — {g.scope}: `{g.status}`; source {g.source}"
+            f"{f' / {g.page}' if g.page else ''}, revid {g.revid}, checked {g.checked}, "
+            f"license {g.license}; {state}. {g.note}"
+        )
+    if ritva_ingested:
+        out.append("- (a `Ritva on Shabbat` work now exists in the database)")
+    return [*out, ""]
 
 
 def token_counts(engine: Engine, top_versions: dict[int, int], encoding: str, log=print):
@@ -248,8 +281,8 @@ def build(
         *[f"| {k} | {n:,} |" for k, n in rnf_top],
         "",
     ]
-    if not ritva:
-        md += ["**Known export gap:** `Ritva on Shabbat` is not in the Sefaria export.", ""]
+    md += known_gap_lines(ritva)
+    md += rnf_section(engine, out_dir, log)
     md += ["### Unresolved: examples (citation A | citation B | type | side)", ""]
     for reason, ex in samples.items():
         md.append(f"**{reason}**")

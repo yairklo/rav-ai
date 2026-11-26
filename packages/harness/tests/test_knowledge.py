@@ -254,7 +254,9 @@ def test_get_links_are_candidates_with_the_sefaria_label(session, kl):
     res = mk(session).call("get_links", {"ref": "Shabbat 22a:1"})
     e = res["items"][0]
     assert e["candidate"] is True and e["evidence_origin"] == "sefaria"
-    assert e["label"] == "קישור ספריא: מועמד, לא ראיה" and e["edge_type"].startswith("ein mishpat")
+    assert e["label"] == "קישור של ספריא: מועמד, לא ראיה" and e["edge_type"].startswith(
+        "ein mishpat"
+    )
     assert {e["ref_a"], e["ref_b"]} == {"Shabbat 22a:1", "Tur, Orach Chayim 670:1"}
     assert e["citation_a"] and e["citation_b"]
     assert (
@@ -882,3 +884,18 @@ def test_fix1_unchecked_books_are_shown_by_hebrew_title_when_there_is_one(sessio
     kw = {"scope": "partial", "unchecked_core_books": ["Tosafot on Shabbat"]}
     rejected_with(t, answer(base, english, **kw), "KL_COVERAGE_BOOKS", read=("Shabbat 22a:1",))
     assert check(t, answer(base, hebrew, **kw))[0] is not None
+
+
+def test_harness_labels_and_candidate_rule_come_from_links_policy():
+    from rav_ai import links_policy as lp
+
+    cfgp = load_config().phrases
+    assert cfgp.sefaria_label == lp.LABEL_SEFARIA and cfgp.auto_link_label == lp.LABEL_AUTO
+    assert lp.is_candidate("heuristic") and not lp.is_candidate("human")
+
+
+@pytest.mark.real_known_gaps
+def test_shipped_known_gaps_make_shabbat_22_partial_and_name_ritva(session, kl):
+    t = CorpusTools(session, "personal", cfg())
+    assert "Ritva on Shabbat" in t.kl._known_gaps(["Shabbat 22a:1"])
+    assert t.kl._known_gaps(["Berakhot 2a:1"]) == []
