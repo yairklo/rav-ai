@@ -150,3 +150,98 @@ def corpus(pg_engine):
         )
         s.commit()
     return pg_engine
+
+
+@pytest.fixture
+def kl_corpus(pg_engine):
+    """Seed for V5-V10 on Postgres: a primary work, a lens work and a core code, with
+    kl_sources, kl_coverage, a witness and a Sefaria edge."""
+    from rav_ai.db.models import Edge, KlCoverage, KlItem, KlRelation, KlSource, KlWitness
+
+    with Session(pg_engine) as s:
+        snap = Snapshot(source="sefaria", export_label="fixture-kl", status="complete")
+        author = Author(slug="kl", name="KL")
+        s.add_all([snap, author])
+        s.flush()
+        works = {}
+        for title, he in (("Gem", "גמ"), ("Lens", "עיון"), ("Codes", "פוסק")):
+            w = Work(
+                title=title,
+                he_title=he,
+                category="Talmud",
+                category_path=["Talmud"],
+                section_names=["Daf"],
+                schema={},
+                author_id=author.id,
+            )
+            s.add(w)
+            works[title] = w
+        s.flush()
+        segs = {}
+        for title in works:
+            v = _version(
+                works[title].id, snap.id, "he", f"{title} he", can_index=True, primary=True
+            )
+            s.add(v)
+            s.flush()
+            for n in (1, 2):
+                seg = _segment(works[title].id, f"{title} 1:{n}")
+                s.add(seg)
+                s.flush()
+                s.add(_text(seg.id, v.id, f"טקסט {title} שורה {n} לבדיקה"))
+                segs[f"{title} 1:{n}"] = seg
+        s.add_all(
+            [
+                KlSource(
+                    work_id=works["Gem"].id,
+                    tier="canonical",
+                    role="primary",
+                    license_tier="PUBLIC_COMMERCIAL",
+                    weight_tier="core",
+                ),
+                KlSource(
+                    work_id=works["Lens"].id,
+                    tier="lamdanut",
+                    role="lens",
+                    license_tier="PUBLIC_COMMERCIAL",
+                    weight_tier="extended",
+                ),
+                KlSource(
+                    work_id=works["Codes"].id,
+                    tier="codes",
+                    role="primary",
+                    license_tier="PUBLIC_COMMERCIAL",
+                    weight_tier="core",
+                ),
+                KlCoverage(scope_key="Gem 1", work_id=works["Gem"].id, status="covered"),
+                KlCoverage(scope_key="Gem 1", work_id=works["Codes"].id, status="not_ingested"),
+                KlWitness(id=5, siglum="MS-T", kind="manuscript"),
+                Edge(
+                    id=777,
+                    segment_a_id=segs["Gem 1:1"].id,
+                    segment_b_id=segs["Codes 1:1"].id,
+                    edge_type="mesorat hashas",
+                    origin="sefaria",
+                    snapshot_id=snap.id,
+                ),
+            ]
+        )
+        # fail-closed origins: heuristic / llm / unknown are candidates, human is not
+        for eid, origin in ((778, "heuristic"), (779, "llm"), (780, "weird"), (782, "human")):
+            s.add(
+                Edge(
+                    id=eid,
+                    segment_a_id=segs["Gem 1:1"].id,
+                    segment_b_id=segs["Codes 1:1"].id,
+                    edge_type="",
+                    origin=origin,
+                    snapshot_id=snap.id,
+                )
+            )
+        a = KlItem(kind="issue", item_key="issue:a", scope_key="Gem 1", body={}, input_hash="ha")
+        b = KlItem(kind="issue", item_key="issue:b", scope_key="Gem 1", body={}, input_hash="hb")
+        s.add_all([a, b])
+        s.flush()
+        s.add(KlRelation(id=4, from_item_id=a.id, to_item_id=b.id, rel="supports"))
+        s.commit()
+    return pg_engine

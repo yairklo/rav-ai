@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>{% block title %}דירוג{% endblock %} · rav-evals</title>
+<style>
+  :root { --bg:#fbfaf7; --fg:#1d1d1f; --mut:#6b6b70; --line:#dedbd2; --sel:#fff3c4;
+          --ok:#1f7a3a; --bad:#b3261e; --fix:#8a5a00; --mark:#ffe08a; --card:#fff; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#17171a; --fg:#ececef; --mut:#9a9aa2; --line:#33333a; --sel:#3b3520;
+            --ok:#5fcf80; --bad:#ff8a80; --fix:#f0b74a; --mark:#5c4a12; --card:#202024; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font: 17px/1.6 "Frank Ruhl Libre", "David", "Noto Serif Hebrew", serif;
+         background:var(--bg); color:var(--fg); }
+  header { display:flex; gap:1.5rem; align-items:baseline; padding:.6rem 1.2rem;
+           border-bottom:1px solid var(--line); font-family: system-ui, sans-serif; font-size:14px; }
+  header a { color:inherit; } header .who { margin-inline-start:auto; color:var(--mut); }
+  main { padding:1rem 1.2rem; }
+  .cols { display:grid; grid-template-columns: 1fr 1fr; gap:1rem; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:6px; padding:.8rem 1rem; }
+  .src { max-height: 70vh; overflow:auto; }
+  .src h4 { margin:.6rem 0 .2rem; font-family: system-ui, sans-serif; font-size:13px; color:var(--mut); direction:ltr; text-align:right; }
+  .claim { padding:.4rem .6rem; border-radius:4px; border-inline-start:4px solid transparent; margin:.3rem 0; }
+  .claim.sel { background:var(--sel); }
+  .claim.ok { border-color:var(--ok); } .claim.wrong { border-color:var(--bad); } .claim.fix { border-color:var(--fix); }
+  .claim.hidden { opacity:.45; text-decoration: line-through; }
+  .meta { font-family: system-ui, sans-serif; font-size:12px; color:var(--mut); }
+  .keys { font-family: system-ui, sans-serif; font-size:12px; color:var(--mut); margin-top:1rem; }
+  kbd { border:1px solid var(--line); border-bottom-width:2px; border-radius:3px; padding:0 .3em; font-size:11px; }
+  mark { background:var(--mark); color:inherit; }
+  .opts span { display:inline-block; margin:.15rem .3rem; padding:.1rem .45rem; border:1px solid var(--line);
+               border-radius:3px; font-family: system-ui, sans-serif; font-size:13px; }
+  .opts span.on { background:var(--sel); border-color:var(--fix); }
+  .status { font-family: system-ui, sans-serif; font-size:13px; min-height:1.4em; }
+  table { border-collapse: collapse; font-family: system-ui, sans-serif; font-size:14px; }
+  td, th { border-bottom:1px solid var(--line); padding:.3rem .6rem; text-align:right; }
+  ul.tree { list-style:none; padding-inline-start:1.1rem; border-inline-start:1px dashed var(--line); }
+  input.note { width:100%; font: inherit; font-size:14px; padding:.3rem; background:var(--bg); color:var(--fg);
+               border:1px solid var(--line); border-radius:4px; }
+  pre.diff { direction:ltr; text-align:left; font-size:12px; overflow:auto; max-height:40vh; }
+</style>
+</head>
+<body>
+<header>
+  <a href="/">ראשי</a><a href="/answers">תשובות</a><a href="/pairs">זוגות</a><a href="/items">פריטי שכבה</a>
+  <span class="who">מדרג: {{ rater }}</span>
+</header>
+<main>{% block body %}{% endblock %}</main>
+<script>
+const T0 = Date.now();
+function secs() { return (Date.now() - T0) / 1000; }
+async function post(url, data) {
+  const r = await fetch(url, {method: "POST", headers: {"Content-Type": "application/json"},
+                              body: JSON.stringify({...data, seconds: secs()})});
+  const st = document.getElementById("status");
+  const j = await r.json().catch(() => ({}));
+  if (st) st.textContent = r.ok ? "נשמר" : ("שגיאה: " + (j.detail ? JSON.stringify(j.detail) : r.status));
+  return r.ok ? j : null;
+}
+function typing(e) { return ["INPUT", "TEXTAREA"].includes(e.target.tagName); }
+</script>
+{% block script %}{% endblock %}
+</body>
+</html>

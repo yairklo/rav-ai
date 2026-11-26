@@ -9,6 +9,10 @@ dependencies = [
     "sqlalchemy>=2.0",
     "textnorm",
     "rav-ai",
+    "fastapi>=0.110",
+    "jinja2>=3.1",
+    "uvicorn>=0.29",
+    "httpx>=0.27",
 ]
 
 [tool.uv.sources]
@@ -27,6 +31,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/rav_evals"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/rav_evals/review/templates" = "rav_evals/review/templates"
 
 [tool.ruff]
 line-length = 100

@@ -1,0 +1,30 @@
+# Known external gaps in source coverage. Read by the ingest report and (later) by KL-1/KL-4 to
+# fill `kl_coverage`. Nothing listed here has been ingested: a gap is a fact about the source,
+# not about our pipeline. Schema is validated by rav_ai.known_gaps (tests/test_known_gaps.py).
+#
+# status: partial_external | absent_external   (both: the text is not available to ingest)
+# license: SPDX-like string, as published by the source. Fail closed: unknown => can_index=false
+#          if the text is ever ingested.
+
+[[gap]]
+work = "Ritva on Shabbat"
+scope = "Shabbat 21a-23b (chapter 2, he.wikisource page חידושי הריטב\"א על הש\"ס/שבת/פרק ב)"
+status = "partial_external"
+source = "he.wikisource"
+page = "חידושי הריטב\"א על הש\"ס/שבת/פרק ב"
+revid = 1454197
+checked = "2026-11-25"
+license = "CC BY-SA 4.0"
+ingested = false
+note = "One fragment of ~174 chars (d\"h 'אחד עשה כדברי בית שמאי', 21b) plus a {{להשלים}} template; chapter 3 page does not exist; chapter 1 holds only ~2.3k chars of 2b-3a. Wikitext parser belongs to KL-5. Not ingested."
+
+[[gap]]
+work = "Ritva on Shabbat"
+scope = "whole work"
+status = "absent_external"
+source = "sefaria-export"
+revid = 0
+checked = "2026-11-25"
+license = "n/a"
+ingested = false
+note = "Not present in the Sefaria bulk export (no works row, no Hebrew version file)."

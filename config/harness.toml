@@ -49,7 +49,7 @@ to = 685
 # *_patterns are regexes (OR-ed; matched on text with ״ normalized to "); none may be empty.
 [knowledge.phrases]
 notice = "עזר בלבד: השכבה היא מפה ולא מקור. אין לצטט אותה; כל ציטוט נקרא ב-get_segment ועובר אימות. השכבה עלולה לטעות; הטקסט קובע."
-sefaria_label = "קישור ספריא: מועמד, לא ראיה"
+sefaria_label = "קישור של ספריא: מועמד, לא ראיה"
 auto_link_label = "קישור אוטומטי: מועמד, לא ראיה"
 candidate_msg = 'קישור עין משפט/מסורת הש"ס הוא מועמד, לא ראיה'
 unchecked = "ספרים מרכזיים שלא נבדקו כאן:"
