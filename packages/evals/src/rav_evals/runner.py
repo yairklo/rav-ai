@@ -13,7 +13,9 @@ from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, Field, computed_field
 
+from .config import Markers, load_config
 from .golden import GoldenQuestion, GoldenSet, RubricItem, is_placeholder
+from .kl_lookup import KnowledgeLookup
 from .normalization import normalize as default_normalize
 from .schema import Answer, ClaimType
 from .verifier import (
@@ -21,6 +23,7 @@ from .verifier import (
     Normalizer,
     SourceStore,
     VerificationReport,
+    has_marker,
     verify_answer,
 )
 
@@ -35,6 +38,10 @@ class RunOutput(BaseModel):
     retrieved_refs: list[str] = Field(default_factory=list)
     model: str = "unknown"
     tool_calls: list[dict[str, Any]] = Field(default_factory=list)
+    knowledge: str = "off"  # KL-3: off | base | base+lens (harness knowledge mode)
+    scope_keys: list[str] = Field(default_factory=list)  # KL-3: kl scope(s) of the run (V8)
+    cost_usd: float | None = None  # KL-3
+
     prompt_version: str | None = None
     prompt_hash: str | None = None  # sha256 of the full prompt, see models.prompt_hash
     # knowledge-layer items the answer relied on: [{item_id, version, tool, tier}], plus a
@@ -67,6 +74,7 @@ class CheckResult(BaseModel):
     kind: str
     status: CheckStatus
     reason: str = ""
+    gate: bool = True  # False = a metric only; never fails or blocks the question
 
 
 class QuestionResult(BaseModel):
@@ -80,6 +88,8 @@ class QuestionResult(BaseModel):
     verification: VerificationReport | None = None
     checks: list[CheckResult] = []
     output: RunOutput | None = None
+    split: str = "dev"
+    golden_pending: list[str] = []  # TODO fields of the golden question (not yet marked)
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -88,9 +98,10 @@ class QuestionResult(BaseModel):
         but some items still await the judge (NOT counted as passed). passed: all else."""
         if self.error is not None or self.verification is None:
             return "error"
-        if not self.verification.passed or any(c.status == "failed" for c in self.checks):
+        gating = [c for c in self.checks if c.gate]
+        if not self.verification.passed or any(c.status == "failed" for c in gating):
             return "failed"
-        if any(c.status == "pending_judge" for c in self.checks):
+        if any(c.status == "pending_judge" for c in gating) or self.golden_pending:
             return "pending"
         return "passed"
 
@@ -208,9 +219,12 @@ def _run_check(
     verification: VerificationReport,
     norm: Normalizer,
     judge: Judge | None,
+    markers: Markers | None = None,
 ) -> CheckResult:
+    markers = markers or load_config().markers
+
     def res(status: CheckStatus, reason: str = "") -> CheckResult:
-        return CheckResult(id=item.id, kind=item.kind, status=status, reason=reason)
+        return CheckResult(id=item.id, kind=item.kind, status=status, reason=reason, gate=item.gate)
 
     text = out.answer.full_text()
     k = item.kind
@@ -253,7 +267,62 @@ def _run_check(
         else:
             ok, why = not hits, f"forbidden terms present: {hits}"
         return res("passed" if ok else "failed", "" if ok else why)
+    if k == "scope_is":
+        if not item.scope:
+            return res("skipped", "no scope given")
+        ok = out.answer.scope == item.scope
+        return res("passed" if ok else "failed", "" if ok else f"scope={out.answer.scope!r}")
+    if k == "has_flag":
+        if not item.flags:
+            return res("skipped", "no flags given")
+        ok = any(f in c.flags for c in out.answer.claims for f in item.flags)
+        return res("passed" if ok else "failed", "" if ok else f"no claim flagged {item.flags}")
+    if k == "novel_protocol":
+        reasons = novel_protocol_failures(out, markers)
+        return res("failed" if reasons else "passed", "; ".join(reasons))
+    if k == "no_unbacked_confirmation":
+        bad = unbacked_confirmations(out.answer, markers)
+        return res("failed" if bad else "passed", f"claims {bad}" if bad else "")
     return res("skipped", f"unknown kind {k}")  # pragma: no cover
+
+
+def unbacked_confirmations(answer: Answer, markers: Markers) -> list[int]:
+    """Claims that confirm the asker's premise ("נכון", "אכן") without any citation."""
+    return [
+        i
+        for i, c in enumerate(answer.claims)
+        if has_marker(c.text, markers.confirm)
+        and not has_marker(c.text, markers.confirm_negation)
+        and not c.citations
+    ]
+
+
+def novel_protocol_failures(out: RunOutput, markers: Markers) -> list[str]:
+    """A novel application (no direct source): passes only when the answer marks its own
+    conclusion as system_conclusion / chidush with flagged_as_system, brings the yesod from
+    sources it actually read, shows sides, and hedges. Presenting a chidush as a source fails."""
+    a = out.answer
+    why: list[str] = []
+    sys_claims = [
+        c
+        for c in a.claims
+        if c.type in (ClaimType.SYSTEM_CONCLUSION, ClaimType.CHIDUSH) and c.flagged_as_system
+    ]
+    if not sys_claims:
+        why.append("no flagged system_conclusion / chidush")
+    if not (a.cited_refs() & set(out.retrieved_refs)):
+        why.append("yesod not brought from the sources read")
+    sourced = [c for c in a.claims if c.type in (ClaimType.QUOTE, ClaimType.INTERPRETATION)]
+    if len(sourced) < 2:
+        why.append("fewer than two sourced claims (sides not shown)")
+    if sys_claims and not any(has_marker(c.text, markers.hedge) for c in sys_claims):
+        why.append("system conclusion not hedged")
+    for i, c in enumerate(a.claims):
+        if c.type in (ClaimType.QUOTE, ClaimType.INTERPRETATION) and (
+            not c.citations or "system_novelty" in c.flags
+        ):
+            why.append(f"claim {i}: chidush presented as a source")
+    return why
 
 
 def _auto_checks(q: GoldenQuestion, out: RunOutput, norm: Normalizer) -> list[CheckResult]:
@@ -294,7 +363,28 @@ def _auto_checks(q: GoldenQuestion, out: RunOutput, norm: Normalizer) -> list[Ch
                 reason="" if ok else "side not mentioned",
             )
         )
+    if q.category.value == "out_of_scope":
+        # Yair 25.11: an out-of-scope answer is a full answer (sources + conclusion) under the
+        # notice, not a refusal. No conclusion = a SOFT failure: reported, never gating.
+        ok = any(c.type is ClaimType.SYSTEM_CONCLUSION and c.citations for c in out.answer.claims)
+        results.append(
+            CheckResult(
+                id="out_of_scope_conclusion",
+                kind="out_of_scope_conclusion",
+                status="passed" if ok else "failed",
+                reason="" if ok else "no sourced conclusion (soft failure)",
+                gate=False,
+            )
+        )
     return results
+
+
+def question_in_scope(q: GoldenQuestion, out: RunOutput) -> bool | None:
+    """The scope comes from the question / run, never from the answer: False for an
+    out_of_scope question, True when the run or question has scope keys, None = unknown."""
+    if q.category.value == "out_of_scope":
+        return False
+    return True if (out.scope_keys or q.scope_keys) else None
 
 
 def run_eval(
@@ -305,7 +395,10 @@ def run_eval(
     judge: Judge | None = None,
     normalize: Normalizer = default_normalize,
     attribution_checker: AttributionChecker | None = None,
+    knowledge: KnowledgeLookup | None = None,
+    markers: Markers | None = None,
 ) -> EvalReport:
+    markers = markers or load_config().markers
     results: list[QuestionResult] = []
     for q in golden.questions:
         base = dict(
@@ -313,6 +406,8 @@ def run_eval(
             category=q.category.value,
             difficulty=q.difficulty,
             question_status=q.status,
+            split=q.split,
+            golden_pending=q.todo_fields(),
         )
         t0 = time.perf_counter()
         try:
@@ -327,9 +422,13 @@ def run_eval(
             store,
             normalize=normalize,
             attribution_checker=attribution_checker,
+            knowledge=knowledge,
+            scope_keys=out.scope_keys or q.scope_keys,
+            markers=markers,
+            question_in_scope=question_in_scope(q, out),
         )
         checks = _auto_checks(q, out, normalize)
-        checks += [_run_check(i, q, out, verification, normalize, judge) for i in q.rubric]
+        checks += [_run_check(i, q, out, verification, normalize, judge, markers) for i in q.rubric]
         results.append(
             QuestionResult(
                 **base,

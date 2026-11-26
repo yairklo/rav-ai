@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}תשובות{% endblock %}
+{% block body %}
+<div class="meta">{{ i + 1 }}/{{ n }} · {{ e.run.fixture_id }} · {{ e.run.question.category.value }} ·
+  סטטוס אוטומטי: {{ e.status }}{% if e.auto_codes %} ({{ e.auto_codes|join(", ") }}){% endif %}</div>
+<h3>{{ e.run.question.question }}</h3>
+<div class="cols">
+  <div class="card">
+    {% for c in e.run.output.answer.claims %}
+    {% set d = done.get(loop.index0) %}
+    <div class="claim {% if d %}{{ d.verdict }}{% endif %}" data-i="{{ loop.index0 }}">
+      <div class="meta">{{ loop.index0 }} · {{ c.type.value }}{% if c.flags %} · {{ c.flags|join(",") }}{% endif %}
+        {% if d %} · {{ d.verdict }}{% if d.error_type %} / {{ d.error_type }}{% endif %}{% if d.subtype %} / {{ d.subtype }}{% endif %}{% endif %}</div>
+      {{ c.text }}
+      {% for cit in c.citations %}<div class="meta">↳ {{ cit.ref }} ({{ cit.source_role }}{% if cit.attribution %}; {{ cit.attribution }}{% endif %}): «{{ cit.quoted_text }}»</div>{% endfor %}
+    </div>
+    {% endfor %}
+    <div class="opts" id="errs">{% for t in error_types %}<span data-v="{{ t }}">{{ loop.index % 10 }} {{ t }}</span>{% endfor %}</div>
+    <div class="opts" id="subs">{% for t in subtypes %}<span data-v="{{ t }}">s{{ loop.index }} {{ t }}</span>{% endfor %}</div>
+    <input class="note" id="note" placeholder="הערה (/)">
+    <div class="opts" id="grades">ציון כולל: {% for g in grades %}<span data-v="{{ g }}">{{ "qwr"[loop.index0] }} {{ g }}</span>{% endfor %}</div>
+    <div class="status" id="status"></div>
+  </div>
+  <div class="card src">
+    {% for ref, text in e.run.sources.items() %}<h4>{{ ref }}</h4><div>{{ text }}</div>{% endfor %}
+    {% if not e.run.sources %}<p class="meta">אין טקסט מקורות בהקלטה.</p>{% endif %}
+  </div>
+</div>
+<div class="keys"><kbd>j</kbd>/<kbd>k</kbd> טענה · <kbd>a</kbd> ✓ · <kbd>x</kbd> ✗ · <kbd>e</kbd> תקן ·
+  <kbd>1</kbd>–<kbd>9</kbd>,<kbd>0</kbd> סוג שגיאה · <kbd>s</kbd> תת-סוג ייחוס · <kbd>/</kbd> הערה ·
+  <kbd>q</kbd>/<kbd>w</kbd>/<kbd>r</kbd> ok/minor/major · <kbd>n</kbd>/<kbd>p</kbd> תשובה הבאה/קודמת</div>
+{% endblock %}
+{% block script %}
+<script>
+const RUN = {{ e.run.fixture_id|tojson }}, IDX = {{ i }};
+const claims = [...document.querySelectorAll(".claim")];
+const errs = [...document.querySelectorAll("#errs span")], subs = [...document.querySelectorAll("#subs span")];
+let sel = 0, err = null, sub = -1;
+function draw() {
+  claims.forEach((c, k) => c.classList.toggle("sel", k === sel));
+  errs.forEach(s => s.classList.toggle("on", s.dataset.v === err));
+  subs.forEach((s, k) => s.classList.toggle("on", k === sub));
+  if (claims[sel]) claims[sel].scrollIntoView({block: "nearest"});
+}
+async function rate(verdict) {
+  if (verdict !== "ok" && !err) { document.getElementById("status").textContent = "בחר סוג שגיאה (1–9, 0)"; return; }
+  const ok = await post("/api/answers/claim", {run_id: RUN, claim_index: sel, verdict,
+    error_type: verdict === "ok" ? null : err, subtype: (err === "wrong_attribution" && sub >= 0) ? subs[sub].dataset.v : null,
+    note: document.getElementById("note").value});
+  if (ok) { claims[sel].classList.remove("ok", "wrong", "fix"); claims[sel].classList.add(verdict);
+            err = null; sub = -1; document.getElementById("note").value = ""; sel = Math.min(sel + 1, claims.length - 1); draw(); }
+}
+document.addEventListener("keydown", async e => {
+  if (typing(e)) { if (e.key === "Escape" || e.key === "Enter") e.target.blur(); return; }
+  const k = e.key;
+  if (k === "j") sel = Math.min(sel + 1, claims.length - 1);
+  else if (k === "k") sel = Math.max(sel - 1, 0);
+  else if (k === "a") return rate("ok");
+  else if (k === "x") return rate("wrong");
+  else if (k === "e") return rate("fix");
+  else if (/^[0-9]$/.test(k)) err = errs[(Number(k) + 9) % 10].dataset.v;
+  else if (k === "s") sub = (sub + 1) % subs.length;
+  else if (k === "/") { e.preventDefault(); document.getElementById("note").focus(); }
+  else if ("qwr".includes(k)) { await post("/api/answers/grade", {run_id: RUN, grade: ["ok","minor","major"]["qwr".indexOf(k)]}); }
+  else if (k === "n") location.href = "/answers?i=" + (IDX + 1);
+  else if (k === "p") location.href = "/answers?i=" + Math.max(IDX - 1, 0);
+  draw();
+});
+draw();
+</script>
+{% endblock %}
