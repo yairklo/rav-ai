@@ -46,6 +46,7 @@ PATTERN_KEYS = (
     "sa_psak_patterns",
     "silence_patterns",
     "disputant_patterns",
+    "layer_verified_patterns",
 )
 
 
@@ -73,6 +74,7 @@ class Phrases:
     sa_psak: re.Pattern
     silence: re.Pattern
     disputant: re.Pattern
+    layer_verified: re.Pattern
 
 
 def _compile(key: str, pattern: str) -> re.Pattern:

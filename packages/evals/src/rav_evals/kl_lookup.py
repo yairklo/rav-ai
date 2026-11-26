@@ -35,7 +35,6 @@ def is_candidate(edge: Any) -> bool:
     human made it - sefaria, heuristic, llm, an unknown origin and NULL are all candidates.
 
     The shared policy can only ADD candidates here, never remove one."""
-    # TODO(links_policy): align with rav_ai.links_policy once it is fail-closed (ingest PR 3)
     origin = edge.get("origin") if isinstance(edge, dict) else getattr(edge, "origin", None)
     policy = bool(_policy_is_candidate(edge)) if _policy_is_candidate is not None else False
     return policy or origin != "human"

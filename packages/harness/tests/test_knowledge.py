@@ -13,7 +13,7 @@ from conftest import FakeLLM, call, reply
 from kl_seed import SCOPE
 from rav_harness import HarnessConfig, load_config
 from rav_harness.config import parse_phrases
-from rav_harness.integration import build_harness
+from rav_harness.integration import build_harness, run_output_scope
 from rav_harness.loop import validate_answer
 from rav_harness.prompt import PROMPT_VERSION, PROMPT_VERSION_KL, knowledge_prompt
 from rav_harness.scope import extract_refs, hebrew_number, ref_in_scope, scope_key_in_scope
@@ -21,6 +21,7 @@ from rav_harness.tools import CorpusTools
 from rav_harness.validators import ALL_CODES
 
 Q_IN = "מה אומרת הגמרא בשבת כב על נר חנוכה"
+OOS = load_config().phrases.out_of_scope  # the notice that heads an out-of-scope answer
 Q_OUT = "מה הדין במצה בפסח קיב"
 Q_PRACTICAL = "האם מותר להדליק נר חנוכה בשבת כב מבחוץ"
 
@@ -432,20 +433,30 @@ def test_4e_unchecked_core_books_must_be_listed_and_stated(session, kl):
     assert check(t, ok)[0] is not None
 
 
-def test_4f_scope_must_match_the_gate_and_out_of_scope_has_no_conclusion(session, kl):
+def test_4f_scope_must_match_the_gate_and_out_of_scope_gets_a_full_answer_with_the_notice(
+    session, kl
+):
     t = mk(session)
     rejected_with(t, answer(claim("x"), scope=None), "KL_SCOPE_MISMATCH")
     rejected_with(t, answer(claim("x"), scope="partial"), "KL_SCOPE_MISMATCH")
     o = mk(session, question=Q_OUT)
-    msg = "השאלה מחוץ למה שנקלט ונבדק: חסר פסחים קיב"
+    pes = "Pesachim 112a:1"
+    # no notice, or a notice that is not at the head: rejected
+    rejected_with(o, answer(claim("מצה שמורה"), scope="out_of_scope"), "KL_SCOPE_NOTICE")
+    not_first = answer(claim("מצה שמורה"), claim(OOS), scope="out_of_scope")
+    rejected_with(o, not_first, "KL_SCOPE_NOTICE")
+    # a conclusion and a marked chidush are now allowed, with the notice first
     for kind in ("chidush", "system_conclusion"):
-        bad = answer(
-            claim(msg), claim("חידוש", type=kind, flagged_as_system=True), scope="out_of_scope"
+        full = answer(
+            claim(OOS),
+            claim("מצה שמורה לשם מצה", [cit(pes)], type="quote"),
+            claim("נראה שיש לשמור", [cit(pes)], type=kind, flagged_as_system=True),
+            scope="out_of_scope",
         )
-        rejected_with(o, bad, "KL_OUT_OF_SCOPE_CONCLUSION")
-    rejected_with(o, answer(claim("אין מידע"), scope="out_of_scope"), "KL_SCOPE_NOTICE")
-    good = answer(claim(msg, [cit("Pesachim 112a:1")]), scope="out_of_scope")
-    assert check(o, good, read=("Pesachim 112a:1",))[0] is not None  # may point at what was read
+        assert check(o, full, read=(pes,))[0] is not None
+    # still no knowledge-layer items or relations on an out-of-scope answer
+    items = answer(claim(OOS, kl_item_ids=[kl.p_rashi.id]), scope="out_of_scope")
+    rejected_with(o, items, "KL_OUT_OF_SCOPE_ITEMS")
 
 
 def test_4g_unusual_interpretation_must_be_flagged_and_marked(session, kl):
@@ -558,26 +569,39 @@ def test_fake_llm_citing_straight_from_the_layer_is_rejected(session, kl):
     assert "Shabbat 22a:1" not in res.retrieved_refs
 
 
-def test_out_of_scope_question_rejects_chidush_then_accepts_honest_answer(session, kl):
-    bad = answer(
-        claim("השאלה מחוץ למה שנקלט ונבדק"),
-        claim("חידוש", type="chidush", flagged_as_system=True),
+def test_out_of_scope_question_gets_a_conclusion_and_the_notice(session, kl):
+    """Out of scope: a full answer with sources and a conclusion, as with knowledge=off, headed
+    by the notice. An answer without the notice is bounced first."""
+    pes = "Pesachim 112a:1"
+    bare = answer(claim("מצה שמורה", [cit(pes)]), scope="out_of_scope")
+    good = answer(
+        claim(OOS),
+        claim("מצה שמורה לשם מצה", [cit(pes, "מצה שמורה לשם מצה")], type="quote"),
+        claim(
+            "נראה שהמצה צריכה שמירה לשם מצוה",
+            [cit(pes)],
+            type="system_conclusion",
+            flagged_as_system=True,
+        ),
+        claim("חידוש המערכת: שמירה מראש", type="chidush", flagged_as_system=True),
         scope="out_of_scope",
     )
-    good = answer(claim("השאלה מחוץ למה שנקלט ונבדק: חסרים פסחים"), scope="out_of_scope")
     llm = FakeLLM(
         [
-            reply(call("coverage", ref_or_query=Q_OUT)),
-            reply(call("submit_answer", "a", **bad)),
+            reply(call("coverage", ref_or_query=Q_OUT), call("get_segment", "g", ref=pes)),
+            reply(call("submit_answer", "a", **bare)),
             reply(call("submit_answer", "b", **good)),
         ]
     )
     res, _ = run(session, llm, Q_OUT)
-    assert res.answer is not None and res.answer.scope == "out_of_scope"
-    assert (
-        len(res.rejected_answers) == 1 and "KL_OUT_OF_SCOPE_CONCLUSION" in res.rejected_answers[0]
-    )
+    assert res.error is None and res.answer.scope == "out_of_scope"
+    assert len(res.rejected_answers) == 1 and "KL_SCOPE_NOTICE" in res.rejected_answers[0]
+    types = [c.type for c in res.answer.claims]
+    assert "system_conclusion" in types and "chidush" in types
+    assert res.answer.claims[0].text == OOS
+    assert all(not c.kl_item_ids and not c.relations for c in res.answer.claims)
     assert res.scope_gate["status"] == "out_of_scope"
+    assert OOS in llm.calls[0]["messages"][0]["content"]  # the prompt asks for the same notice
 
 
 def test_knowledge_items_and_gate_are_recorded_on_the_run(session, kl):
@@ -637,6 +661,7 @@ def test_make_answer_fn_passes_knowledge_items_to_run_output(session, kl):
     fn = make_answer_fn(session, llm, cfg(), record=False)
     out = fn(GoldenQuestion(id="g1", question=Q_IN, category="direct_source", difficulty="easy"))
     assert out.prompt_version == "v1-kl" and out.knowledge_items[0]["tool"] == "_meta"
+    assert out.scope_status == "in_scope"
     assert len(out.knowledge_items) > 1
 
 
@@ -775,17 +800,21 @@ def test_fix1_phrases_come_from_the_config_for_prompt_and_validator(session, kl)
     c = replace(base, knowledge="base+lens", phrases=changed)
     prompt = knowledge_prompt(changed)
     assert "OUT-OF-SCOPE-X" in prompt and "UNCHECKED-X:" in prompt and "UNUSUAL-X" in prompt
-    assert "מחוץ למה שנקלט ונבדק" not in prompt and "<<" not in prompt
+    assert OOS not in prompt and "<<" not in prompt
     assert knowledge_prompt(base.phrases) != prompt
     # the validator follows: the old wording is now rejected, the new one accepted
     o = mk(session, question=Q_OUT, config=c)
-    old = answer(claim("השאלה מחוץ למה שנקלט ונבדק"), scope="out_of_scope")
+    old = answer(claim(OOS), scope="out_of_scope")
     rejected_with(o, old, "KL_SCOPE_NOTICE")
-    assert check(o, answer(claim("OUT-OF-SCOPE-X: חסר"), scope="out_of_scope"))[0] is not None
+    pes = "Pesachim 112a:1"
+    new = answer(claim("OUT-OF-SCOPE-X: חסר"), claim("מצה", [cit(pes)]), scope="out_of_scope")
+    assert check(o, new, read=(pes,))[0] is not None
     # and so does the prompt the model is actually sent
-    llm = FakeLLM([reply(call("coverage", ref_or_query=Q_OUT))] * 1 + [reply()] * 0)
-    llm.responses.append(
-        reply(call("submit_answer", "z", **answer(claim("OUT-OF-SCOPE-X"), scope="out_of_scope")))
+    llm = FakeLLM(
+        [
+            reply(call("coverage", ref_or_query=Q_OUT), call("get_segment", "g", ref=pes)),
+            reply(call("submit_answer", "z", **new)),
+        ]
     )
     res = build_harness(session, llm, c, mode="personal").run(Q_OUT)
     assert res.error is None and "OUT-OF-SCOPE-X" in llm.calls[0]["messages"][0]["content"]
@@ -886,6 +915,115 @@ def test_fix1_unchecked_books_are_shown_by_hebrew_title_when_there_is_one(sessio
     assert check(t, answer(base, hebrew, **kw))[0] is not None
 
 
+# ---- PR #16 fix: scope keys, out-of-scope guards -------------------------------------------
+
+GAMAL_Q = "גמל טעון פשתן שהזיק ברשות הרבים, מי חייב?"
+
+
+def test_out_of_scope_question_has_no_scope_keys_and_status_out_of_scope(session, kl):
+    pes = "Pesachim 112a:1"
+    ans = answer(claim(OOS), claim("מצה שמורה", [cit(pes)]), scope="out_of_scope")
+    llm = FakeLLM(
+        [
+            reply(call("get_shitot", query="גמל טעון פשתן"), call("get_segment", "g", ref=pes)),
+            reply(call("submit_answer", "s", **ans)),
+        ]
+    )
+    res, _ = run(session, llm, GAMAL_Q)
+    assert res.error is None and res.scope_gate["status"] == "out_of_scope"
+    assert res.scope_gate["issues"]  # the gate found the CM 418 issue, out of the pilot scope
+    fields = run_output_scope(res)
+    assert fields["scope_keys"] == [] and fields["scope_status"] == "out_of_scope"
+    assert any(i.get("item_id") == kl.issue2.id for i in res.knowledge_items)  # still recorded
+    from rav_evals.golden import GoldenQuestion
+
+    from rav_harness.integration import make_answer_fn
+
+    llm2 = FakeLLM(
+        [
+            reply(call("get_segment", ref=pes)),
+            reply(call("submit_answer", "s", **ans)),
+        ]
+    )
+    q = GoldenQuestion(id="g2", question=GAMAL_Q, category="out_of_corpus", difficulty="easy")
+    out = make_answer_fn(session, llm2, cfg(), record=False)(q)
+    assert out.scope_status == "out_of_scope"
+
+
+def test_in_scope_scope_keys_are_only_those_the_gate_confirmed(session, kl):
+    llm = FakeLLM(
+        [
+            reply(call("get_shitot", issue_key="issue:candle-place")),  # touches CM 418 too
+            reply(call("get_segment", "c2", ref="Shabbat 22a:1")),
+            reply(call("submit_answer", "c3", **good_args())),
+        ]
+    )
+    res, _ = run(session, llm)
+    touched = {i.get("item_id") for i in res.knowledge_items}
+    assert kl.issue2.id in touched  # the depends_on issue was seen ...
+    fields = run_output_scope(res)
+    assert fields["scope_keys"] == [SCOPE]  # ... but is not a confirmed scope key
+    assert "Shulchan Arukh, Choshen Mishpat 418-418" not in fields["scope_keys"]
+    assert fields["scope_status"] == "in_scope" and fields["knowledge"] == "base+lens"
+
+
+def _oos(session):
+    return mk(session, question=Q_OUT)
+
+
+PES = "Pesachim 112a:1"
+
+
+def _src():
+    return claim("מצה שמורה", [cit(PES)])
+
+
+def test_out_of_scope_rejects_witness_and_unchecked_books(session, kl):
+    o = _oos(session)
+    wit = answer(
+        claim(OOS), claim("מצה", [cit(PES, witness_id=kl.witness.id)]), scope="out_of_scope"
+    )
+    rejected_with(o, wit, "KL_OUT_OF_SCOPE_ITEMS", read=(PES,))
+    books = answer(
+        claim(OOS), _src(), scope="out_of_scope", unchecked_core_books=["Tosafot on Shabbat"]
+    )
+    rejected_with(o, books, "KL_OUT_OF_SCOPE_ITEMS")
+    assert check(o, answer(claim(OOS), _src(), scope="out_of_scope"))[0] is not None
+
+
+def test_out_of_scope_notice_when_in_scope_is_misplaced(session, kl):
+    t = mk(session)
+    bad = answer(claim(OOS), claim("הגמרא", [cit("Shabbat 22a:1")]))
+    rejected_with(t, bad, "KL_SCOPE_NOTICE_MISPLACED", read=("Shabbat 22a:1",))
+    hidden = answer(claim("הגמרא, " + OOS.rstrip(".") + " ", [cit("Shabbat 22a:1")]))
+    rejected_with(t, hidden, "KL_SCOPE_NOTICE_MISPLACED")
+
+
+def test_out_of_scope_notice_comparison_is_normalized(session, kl):
+    o = _oos(session)
+    variant = "‏" + "  ".join(OOS.rstrip(".").split(" ")) + "‎"  # RLM ... LRM
+    ok = answer(claim(variant), _src(), scope="out_of_scope")
+    assert check(o, ok, read=(PES,))[0] is not None
+    quoted = answer(claim(OOS, [cit(PES)], type="quote"), _src(), scope="out_of_scope")
+    assert "not be a quote" in rejected_with(o, quoted, "KL_SCOPE_NOTICE")
+
+
+def test_out_of_scope_needs_a_sourced_claim_beyond_the_notice(session, kl):
+    o = _oos(session)
+    rejected_with(o, answer(claim(OOS), scope="out_of_scope"), "KL_OUT_OF_SCOPE_UNSOURCED")
+    unsourced = answer(claim(OOS), claim("נראה כך"), scope="out_of_scope")
+    rejected_with(o, unsourced, "KL_OUT_OF_SCOPE_UNSOURCED")
+    notice_cites = answer(claim(OOS, [cit(PES)]), scope="out_of_scope")
+    rejected_with(o, notice_cites, "KL_OUT_OF_SCOPE_UNSOURCED", read=(PES,))
+
+
+@pytest.mark.parametrize("txt", ["התשובה אומתה בשכבת הידע", "דין זה אומת בשכבת הידע"])
+def test_out_of_scope_cannot_claim_layer_verification(session, kl, txt):
+    o = _oos(session)
+    bad = answer(claim(OOS), _src(), claim(txt), scope="out_of_scope")
+    rejected_with(o, bad, "KL_OUT_OF_SCOPE_VERIFIED", read=(PES,))
+
+
 def test_harness_labels_and_candidate_rule_come_from_links_policy():
     from rav_ai import links_policy as lp
 
@@ -899,3 +1037,10 @@ def test_shipped_known_gaps_make_shabbat_22_partial_and_name_ritva(session, kl):
     t = CorpusTools(session, "personal", cfg())
     assert "Ritva on Shabbat" in t.kl._known_gaps(["Shabbat 22a:1"])
     assert t.kl._known_gaps(["Berakhot 2a:1"]) == []
+
+
+def test_out_of_scope_notice_is_the_same_in_harness_and_evals_config():
+    from rav_evals.config import load_config as load_evals_config
+
+    notices = load_evals_config().markers.out_of_scope_notice
+    assert load_config().phrases.out_of_scope == notices[0]

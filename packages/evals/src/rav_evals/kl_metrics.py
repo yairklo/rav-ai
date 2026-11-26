@@ -117,7 +117,7 @@ def claim_codes(claim: Claim, rr: RecordedRun, cfg: EvalsConfig) -> list[str]:
         rr.output.retrieved_refs,
         InMemorySourceStore(rr.sources),
         knowledge=kn,
-        scope_keys=rr.output.scope_keys or rr.question.scope_keys,
+        scope_keys=rr.question.scope_keys or rr.output.scope_keys,  # the question decides
         markers=cfg.markers,
     )
     return rep.failure_codes()

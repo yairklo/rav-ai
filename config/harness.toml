@@ -53,7 +53,7 @@ sefaria_label = "קישור של ספריא: מועמד, לא ראיה"
 auto_link_label = "קישור אוטומטי: מועמד, לא ראיה"
 candidate_msg = 'קישור עין משפט/מסורת הש"ס הוא מועמד, לא ראיה'
 unchecked = "ספרים מרכזיים שלא נבדקו כאן:"
-out_of_scope = "מחוץ למה שנקלט ונבדק"
+out_of_scope = "שאלה זו מחוץ להיקף שכבת הידע שנבדקה; התשובה לא עברה אימות שכבת ידע."
 partial = "כיסוי חלקי"
 unusual = "פירוש חריג"
 no_disputant = "לא נמצא חולק בקורפוס שנבדק"
@@ -88,3 +88,5 @@ sa_psak_patterns = [
 ]
 silence_patterns = ['אין (?:מחלוקת|חולק)', 'לא נחלקו', 'דעה אחת בלבד', 'כולם מסכימים']
 disputant_patterns = ['חולק', 'חולקים', 'חלוק']
+# forbidden in an out-of-scope answer: a claim that the knowledge layer verified it
+layer_verified_patterns = ['אומת(?:ה)? בשכבת הידע', 'נבדק(?:ה)? בשכבת הידע', 'אומת(?:ה)? מול שכבת הידע']

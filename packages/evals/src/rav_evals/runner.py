@@ -47,6 +47,8 @@ class RunOutput(BaseModel):
     # knowledge-layer items the answer relied on: [{item_id, version, tool, tier}], plus a
     # {"tool": "_meta", "meta": {knowledge, scope_gate}} entry (stored in runs.knowledge_items)
     knowledge_items: list[dict[str, Any]] = Field(default_factory=list)
+    # knowledge / scope_keys come from KL-3 (#14); scope_status is the harness scope gate's result
+    scope_status: Literal["in_scope", "partial", "out_of_scope"] | None = None
 
 
 AnswerFn = Callable[[GoldenQuestion], RunOutput]
@@ -382,9 +384,9 @@ def _auto_checks(q: GoldenQuestion, out: RunOutput, norm: Normalizer) -> list[Ch
 def question_in_scope(q: GoldenQuestion, out: RunOutput) -> bool | None:
     """The scope comes from the question / run, never from the answer: False for an
     out_of_scope question, True when the run or question has scope keys, None = unknown."""
-    if q.category.value == "out_of_scope":
+    if q.category.value == "out_of_scope" or out.scope_status == "out_of_scope":
         return False
-    return True if (out.scope_keys or q.scope_keys) else None
+    return True if (q.scope_keys or out.scope_keys) else None
 
 
 def run_eval(
@@ -423,7 +425,7 @@ def run_eval(
             normalize=normalize,
             attribution_checker=attribution_checker,
             knowledge=knowledge,
-            scope_keys=out.scope_keys or q.scope_keys,
+            scope_keys=q.scope_keys or out.scope_keys,  # V8: the question decides
             markers=markers,
             question_in_scope=question_in_scope(q, out),
         )
