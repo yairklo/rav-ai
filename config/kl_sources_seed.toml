@@ -1,7 +1,11 @@
-# kl_sources seed: Bavli Shabbat and the commentaries on the sugya (Shabbat 21b-23b), from the
-# approved core-books-draft (25.11.2026), sections 1, 2 and 5.
+# kl_sources seed from the approved core-books-draft (25.11.2026):
+#   Bavli Shabbat and the commentaries on the sugya (Shabbat 21b-23b): sections 1, 2 and 5;
+#   the codes for Shulchan Arukh, Orach Chayim 670-685: sections 3 and 4.
 #   tier         - the draft's section: §1 the Gemara = canonical, rishonim (§1/§2) = rishonim,
-#                  acharonim on the sugya (§1 Gilyon HaShas, §5) = acharonim
+#                  acharonim on the sugya (§1 Gilyon HaShas, §5) = acharonim; §3/§4: the Tur and
+#                  the Shulchan Arukh = codes, their commentaries = nosei_kelim. A standalone later
+#                  code (Arukh HaShulchan, Chayei Adam, Kitzur) is codes-or-acharonim: undecided by
+#                  the draft, so not registered.
 #   role         - primary: the work's own text is a source of claims (lenses / reference-only
 #                  works are LENS_RECORDS in rav_knowledge/sources.py)
 #   weight_tier  - the draft's grade: יסוד = core, חשוב = major, מורחב = extended
@@ -131,6 +135,154 @@ weight_tier = "major"
 license_tier = "PUBLIC_COMMERCIAL"     # 1864-1908: Public Domain
 draft = "§5 חידושי חתם סופר על שבת"
 
+# ---- §3 Tur, Beit Yosef and their commentaries ---------------------------------------------------
+
+[[source]]
+title = "Tur"
+tier = "codes"
+role = "primary"
+weight_tier = "core"
+license_tier = "PUBLIC_COMMERCIAL"     # Vilna 1923 / Warsaw 1861 / OnYourWay: Public Domain (3 unknown versions not indexable)
+draft = "§3 טור או\"ח תרע–תרעז"
+
+[[source]]
+title = "Beit Yosef"
+tier = "nosei_kelim"
+role = "primary"
+weight_tier = "core"
+license_tier = "PUBLIC_COMMERCIAL"     # Tur Vilna 1923: Public Domain; one Wikisource excerpt CC-BY-SA
+draft = "§3 בית יוסף"
+
+[[source]]
+title = "Bach"
+tier = "nosei_kelim"
+role = "primary"
+weight_tier = "core"
+license_tier = "PUBLIC_COMMERCIAL"     # Tur Vilna 1923: Public Domain
+draft = "§3 ב\"ח (בית חדש)"
+
+[[source]]
+title = "Darkhei Moshe"
+tier = "nosei_kelim"
+role = "primary"
+weight_tier = "core"
+license_tier = "PUBLIC_COMMERCIAL"     # Tur Vilna 1923: Public Domain (Fürth 1760: unknown, not indexable)
+draft = "§3 דרכי משה"
+
+[[source]]
+title = "Prisha"
+tier = "nosei_kelim"
+role = "primary"
+weight_tier = "major"
+license_tier = "PUBLIC_COMMERCIAL"     # Tur Vilna 1923: Public Domain
+draft = "§3 פרישה"
+
+# ---- §4 Shulchan Arukh and its commentaries -----------------------------------------------------
+
+[[source]]
+title = "Shulchan Arukh, Orach Chayim"
+tier = "codes"
+role = "primary"
+weight_tier = "core"
+license_tier = "PUBLIC_COMMERCIAL"     # Lemberg 1893 / Torat Emet: Public Domain (2 versions without a license, not indexable)
+draft = "§4 שו\"ע (מחבר ורמ\"א)"
+
+[[source]]
+title = "Magen Avraham"
+tier = "nosei_kelim"
+role = "primary"
+weight_tier = "core"
+license_tier = "PUBLIC_COMMERCIAL"     # Public Domain (Dyhernfurth 1692: unknown, not indexable)
+draft = "§4 מגן אברהם"
+
+[[source]]
+title = "Turei Zahav on Shulchan Arukh, Orach Chayim"
+tier = "nosei_kelim"
+role = "primary"
+weight_tier = "core"
+license_tier = "PUBLIC_COMMERCIAL"     # Lemberg 1893: Public Domain
+draft = "§4 ט\"ז"
+
+[[source]]
+title = "Mishnah Berurah"
+tier = "nosei_kelim"
+role = "primary"
+weight_tier = "core"
+license_tier = "PUBLIC_COMMERCIAL"     # On Your Way: Public Domain (3 unknown versions not indexable, as the draft notes)
+draft = "§4 משנה ברורה"
+
+[[source]]
+title = "Biur Halacha"
+tier = "nosei_kelim"
+role = "primary"
+weight_tier = "core"
+license_tier = "PUBLIC_COMMERCIAL"     # Public Domain
+draft = "§4 ביאור הלכה"
+
+[[source]]
+title = "Beur HaGra on Shulchan Arukh, Orach Chayim"
+tier = "nosei_kelim"
+role = "primary"
+weight_tier = "core"
+license_tier = "PUBLIC_COMMERCIAL"     # Lemberg 1893: Public Domain (one version without a license, not indexable)
+draft = "§4 ביאור הגר\"א"
+
+[[source]]
+title = "Ba'er Hetev on Shulchan Arukh, Orach Chayim"
+tier = "nosei_kelim"
+role = "primary"
+weight_tier = "major"
+license_tier = "PUBLIC_COMMERCIAL"     # Torat Emet: Public Domain
+draft = "§4 באר היטב"
+
+[[source]]
+title = "Peri Megadim on Orach Chayim"
+tier = "nosei_kelim"
+role = "primary"
+weight_tier = "major"
+license_tier = "PUBLIC_COMMERCIAL"     # Warsaw 1877: Public Domain
+draft = "§4 פרי מגדים (א\"א ומש\"ז)"
+
+[[source]]
+title = "Machatzit HaShekel on Orach Chayim"
+tier = "nosei_kelim"
+role = "primary"
+weight_tier = "extended"
+license_tier = "PUBLIC_COMMERCIAL"     # Lemberg 1893: Public Domain
+draft = "§4 מחצית השקל"
+
+[[source]]
+title = "Sha'arei Teshuvah on Shulchan Arukh, Orach Chayim"
+tier = "nosei_kelim"
+role = "primary"
+weight_tier = "major"
+license_tier = "PUBLIC_COMMERCIAL"     # Lemberg 1893: Public Domain
+draft = "§4 שערי תשובה"
+
+[[source]]
+title = "Rabbi Akiva Eiger on Shulchan Arukh, Orach Chayim"
+tier = "nosei_kelim"
+role = "primary"
+weight_tier = "major"
+license_tier = "PUBLIC_COMMERCIAL"     # Lemberg 1893: Public Domain
+draft = "§4 רעק\"א על השו\"ע"
+
+[[source]]
+title = "Eliyah Rabbah on Shulchan Arukh, Orach Chayim"
+tier = "nosei_kelim"
+role = "primary"
+weight_tier = "major"
+license_tier = "PUBLIC_COMMERCIAL"     # Sulzbach 1757: Public Domain
+draft = "§4 אליה רבה"
+
+[[source]]
+title = "Kaf HaChayim on Shulchan Arukh, Orach Chayim"
+tier = "nosei_kelim"
+role = "primary"
+weight_tier = "core"
+license_tier = "PUBLIC_COMMERCIAL"     # Jerusalem 1910-1933: Public Domain (Kol Yaakov References: unknown, not indexable)
+draft = "§4 כף החיים (סופר)"
+
 # ---- deliberately NOT registered (documented; registering them needs a decision) -------------
 
 [[not_registered]]
@@ -160,3 +312,53 @@ reason = "draft §1: reading aid only, not a source - no role fits; used as an a
 [[not_registered]]
 title = "Hagahot HaBach on Rif Shabbat"
 reason = "draft §1 lists הגהות הב\"ח על הש\"ס as not found [לאמת]; this is the Bach on the Rif"
+
+# §3/§4 codes
+[[not_registered]]
+title = "Arukh HaShulchan"
+reason = "draft §4 יסוד, license OK (Vilna PD / Wikisource CC-BY-SA), but tier undecided: a standalone later code (codes vs acharonim)"
+
+[[not_registered]]
+title = "Chayyei Adam"
+reason = "draft §4 חשוב, Public Domain, but tier undecided: a standalone later code (codes vs acharonim)"
+
+[[not_registered]]
+title = "Kitzur Shulchan Arukh"
+reason = "draft §4 מורחב, license OK, but tier undecided: a standalone later code (codes vs acharonim)"
+
+[[not_registered]]
+title = "Sha'ar HaTziyun"
+reason = "draft §4: not found as a separate work in Sefaria [לאמת]; not in the corpus"
+
+[[not_registered]]
+title = "Levush"
+reason = "draft §4: not found [לאמת]; the corpus' 'Levush HaOrah' / 'Levushei Serad' are other works"
+
+[[not_registered]]
+title = "Peri Chadash on Orach Chayim"
+reason = "draft §4: not in Sefaria (Wikisource has only siman 671); the corpus has Peri Chadash on the Mishneh Torah only"
+
+[[not_registered]]
+title = "Darkhei Moshe (Amiel)"
+reason = "not in the draft (a 1998-2000 edition marked Public Domain); the draft's Darkhei Moshe is the Tur edition"
+
+# requested to be listed explicitly
+[[not_registered]]
+title = "Sefat Emet"
+reason = "draft §5: not verified that the novellae on Shas are in Sefaria's 'Sefat Emet' (Chassidut) [לאמת]"
+
+[[not_registered]]
+title = "Ohr Zarua"
+reason = "draft §2 מורחב, Public Domain: not a Shabbat commentary nor a §3/§4 code - outside this seed's scope so far"
+
+[[not_registered]]
+title = "Bnei Yissaschar"
+reason = "draft §5 מורחב (derush), Public Domain: outside this seed's scope so far"
+
+[[not_registered]]
+title = "Mishneh Torah, Scroll of Esther and Hanukkah"
+reason = "draft §2 יסוד, license OK (Torat Emet PD / Wikisource CC-BY-SA): the Rambam is outside the Shabbat-commentary and §3/§4 scope so far"
+
+[[not_registered]]
+title = "Maggid Mishneh on Mishneh Torah, Scroll of Esther and Hanukkah"
+reason = "draft §2 יסוד, Public Domain: registered together with the Rambam, outside this seed's scope so far"

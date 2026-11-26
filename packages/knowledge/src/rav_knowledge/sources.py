@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Literal
 
 from pydantic import TypeAdapter
-from rav_ai.config import ROOT
+from rav_ai.config import POLICY_PATH, ROOT, LicensePolicy
 from rav_ai.db.models import KL_TIERS, KlSource, Version, Work
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -174,23 +174,55 @@ def load_seed(path: Path | None = None) -> dict:
     return {"source": entries, "not_registered": skipped}
 
 
-def required_license_tier(s: Session, work: Work) -> tuple[str | None, list[str]]:
+def personal_only_licenses(policy_path: Path = POLICY_PATH) -> tuple[LicensePolicy, set[str]]:
+    """The license-policy keys marked ``personal_only = true`` (an optional attribute read only by
+    the knowledge layer; it does not change the three flags ingest stores on a version)."""
+    policy = LicensePolicy.load(policy_path)
+    raw = tomllib.loads(policy_path.read_text(encoding="utf-8")).get("licenses", {})
+    keys = {
+        policy.match(k)
+        for name, v in raw.items()
+        if v.get("personal_only")
+        for k in (name, *v.get("aliases", []))
+    }
+    return policy, keys - {"unknown"}
+
+
+def version_license_tier(v: Version, policy: LicensePolicy, personal: set[str]) -> str | None:
+    """None: not indexable (unknown / missing license) -> the version is excluded anyway."""
+    if not v.can_index:
+        return None
+    if policy.match(v.license) in personal:
+        return PERSONAL
+    return "PUBLIC_COMMERCIAL" if v.can_display_public else "NON_COMMERCIAL_ONLY"
+
+
+def required_license_tier(
+    s: Session, work: Work, policy_path: Path = POLICY_PATH
+) -> tuple[str | None, list[str]]:
     """The loosest license_tier the work's indexable versions allow (= its most restrictive one),
-    from Sefaria's per-version declaration via the license-policy flags. None: no indexable
-    version (unknown / missing license everywhere) -> must not be registered."""
+    from Sefaria's per-version declaration via the license policy: a personal-only license ->
+    PERSONAL_ONLY_RESTRICTED, else the stored flags. None: no indexable version (unknown /
+    missing license everywhere) -> must not be registered."""
+    policy, personal = personal_only_licenses(policy_path)
     need, basis = None, []
     for v in s.scalars(select(Version).where(Version.work_id == work.id).order_by(Version.id)):
         basis.append(f"{v.version_title}: {v.license or 'none'}")
-        if not v.can_index:
+        t = version_license_tier(v, policy, personal)
+        if t is None:
             continue  # unknown / missing license: excluded per version anyway (fail-closed)
-        t = "PUBLIC_COMMERCIAL" if v.can_display_public else "NON_COMMERCIAL_ONLY"
         if need is None or _LICENSE_RANK[t] > _LICENSE_RANK[need]:
             need = t
     return need, basis
 
 
 def seed_sources(
-    s: Session, path: Path | None = None, *, dry_run: bool = False, added_by: str = "seed"
+    s: Session,
+    path: Path | None = None,
+    *,
+    dry_run: bool = False,
+    added_by: str = "seed",
+    policy_path: Path = POLICY_PATH,
 ) -> dict:
     """Register every seed entry whose work exists and whose declared license_tier is not looser
     than its versions allow. Idempotent; refuses (and reports) everything else."""
@@ -202,7 +234,7 @@ def seed_sources(
         if w is None:
             out["refused"].append({"title": t, "reason": "work not in the corpus"})
             continue
-        need, basis = required_license_tier(s, w)
+        need, basis = required_license_tier(s, w, policy_path)
         if need is None:
             out["refused"].append({"title": t, "reason": f"no indexable version: {basis}"})
             continue
