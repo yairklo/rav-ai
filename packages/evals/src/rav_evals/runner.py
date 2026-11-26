@@ -40,8 +40,8 @@ class RunOutput(BaseModel):
     # knowledge-layer items the answer relied on: [{item_id, version, tool, tier}], plus a
     # {"tool": "_meta", "meta": {knowledge, scope_gate}} entry (stored in runs.knowledge_items)
     knowledge_items: list[dict[str, Any]] = Field(default_factory=list)
-    knowledge: str | None = None  # knowledge mode of the run: off | base | base+lens
-    scope_keys: list[str] = Field(default_factory=list)  # kl scope keys of those items (V8)
+    # knowledge / scope_keys come from KL-3 (#14); scope_status is the harness scope gate's result
+    scope_status: Literal["in_scope", "partial", "out_of_scope"] | None = None
 
 
 AnswerFn = Callable[[GoldenQuestion], RunOutput]

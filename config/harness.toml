@@ -88,3 +88,5 @@ sa_psak_patterns = [
 ]
 silence_patterns = ['אין (?:מחלוקת|חולק)', 'לא נחלקו', 'דעה אחת בלבד', 'כולם מסכימים']
 disputant_patterns = ['חולק', 'חולקים', 'חלוק']
+# forbidden in an out-of-scope answer: a claim that the knowledge layer verified it
+layer_verified_patterns = ['אומת(?:ה)? בשכבת הידע', 'נבדק(?:ה)? בשכבת הידע', 'אומת(?:ה)? מול שכבת הידע']

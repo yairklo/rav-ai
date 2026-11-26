@@ -1005,6 +1005,18 @@ class KnowledgeTools:
         titles = list(dict.fromkeys(titles))
         return titles, {t: display[t] for t in titles}
 
+    def _confirmed_scope_keys(self, issue_keys: list[str], refs: list[str]) -> list[str]:
+        """Scope keys of in-scope issues, plus the kl scope keys that cover an in-scope ref;
+        only keys that are themselves inside the pilot scope."""
+        rules = self.cfg.scope
+        found = set(issue_keys)
+        if refs:
+            all_keys = self.session.scalars(
+                select(KlItem.scope_key).where(KlItem.is_current).distinct()
+            ).all()
+            found |= {k for k in all_keys if any(key_covers_ref(k, r) for r in refs)}
+        return sorted(k for k in found if scope_key_in_scope(k, rules))
+
     def _gate(self, text: str) -> ScopeGate:
         rules = self.cfg.scope
         refs = extract_refs(text)
@@ -1030,6 +1042,7 @@ class KnowledgeTools:
             gate.reasons.append("אין בשאלה מקור בתחום הפיילוט, ולא נמצא נידון בתחום")
             return gate
         keys = [i["scope_key"] for i in issues_in]
+        gate.scope_keys = self._confirmed_scope_keys(keys, gate.refs_in_scope)
         gate.unchecked_core_books, gate.unchecked_display = self._unchecked_core(
             gate.refs_in_scope, keys
         )

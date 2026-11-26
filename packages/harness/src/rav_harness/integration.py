@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Any
 
-from rav_ai.db.models import KlItem, Run
+from rav_ai.db.models import Run
 from rav_evals.golden import GoldenQuestion, GoldenSet
 from rav_evals.normalization import normalize
 from rav_evals.pg_store import PostgresSourceStore
 from rav_evals.runner import AnswerFn, EvalReport, RunOutput, run_eval
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .config import HarnessConfig, load_config
@@ -65,13 +65,19 @@ def build_harness(
     )
 
 
-def _scope_keys(session: Session, knowledge_items: list[dict]) -> list[str]:
-    """Distinct kl scope keys ("Shabbat 21a-24a") of the layer items the run touched."""
-    ids = {i["item_id"] for i in knowledge_items if "item_id" in i}
-    if not ids:
-        return []
-    keys = session.scalars(select(KlItem.scope_key).where(KlItem.id.in_(ids)).distinct()).all()
-    return sorted(keys)
+def run_output_scope(res: HarnessResult) -> dict[str, Any]:
+    """The RunOutput fields that describe the knowledge mode and the scope gate. scope_keys are
+    only the keys the gate confirmed in scope (empty when out_of_scope), never the keys of every
+    item the run touched (those stay in runs.knowledge_items). ``knowledge`` and ``scope_keys``
+    are RunOutput fields from KL-3 (#14); until it is merged pydantic ignores them."""
+    gate = res.scope_gate or {}
+    return {
+        "knowledge": res.knowledge,
+        "scope_keys": list(gate.get("scope_keys", []))
+        if gate.get("status") != "out_of_scope"
+        else [],
+        "scope_status": gate.get("status"),
+    }
 
 
 def make_answer_fn(
@@ -102,8 +108,7 @@ def make_answer_fn(
             prompt_version=res.prompt_version,
             prompt_hash=res.prompt_hash,
             knowledge_items=res.knowledge_items,
-            knowledge=res.knowledge,
-            scope_keys=_scope_keys(session, res.knowledge_items),
+            **run_output_scope(res),
         )
 
     return answer_fn

@@ -122,6 +122,9 @@ class ScopeGate:
     practical: bool = False
     # work title -> name shown in the answer text (he_title when there is one)
     unchecked_display: dict[str, str] = field(default_factory=dict)
+    # kl scope keys the gate confirmed as inside the pilot scope (from in-scope issues and
+    # refs); empty when out_of_scope. Not the keys of every item the run touched.
+    scope_keys: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict:
         return {
@@ -132,6 +135,7 @@ class ScopeGate:
             "issues": self.issues,
             "unchecked_core_books": self.unchecked_core_books,
             "unchecked_display": self.unchecked_display,
+            "scope_keys": self.scope_keys,
             "reasons": self.reasons,
             "practical": self.practical,
         }
