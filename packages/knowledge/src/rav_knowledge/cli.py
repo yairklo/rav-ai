@@ -39,7 +39,10 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("stage")
     p.add_argument("scope")
     p.add_argument("--dry-run", action="store_true")
-    p.add_argument("--budget-usd", type=float)
+    p.add_argument("--budget-usd", type=float, help="api backend only")
+    p.add_argument(
+        "--limit", type=int, metavar="N", help="at most N new tasks in this run, then stop"
+    )
     sub.add_parser("status")
     p = sub.add_parser(
         "promote", help="make a job's output current (rollback = promote an old job)"
@@ -76,19 +79,37 @@ def main(argv: list[str] | None = None) -> int:
         with Session(engine) as s:
             print(format_estimate(estimate(s, a.scope, _stages(a.stages), cfg)))
     elif a.cmd == "run":
-        from rav_harness.llm import LiteLLMClient
+        from .backends import StopRun, make_llm
 
+        if a.limit is not None and a.limit < 1:
+            raise SystemExit("--limit must be >= 1")
+        llm = make_llm(cfg)
+        if cfg.backend != "api":
+            if a.budget_usd is not None:
+                print(f"note: --budget-usd is ignored with backend={cfg.backend}", file=sys.stderr)
+            if a.stage != "s0" and not a.dry_run:
+                try:
+                    llm.ensure_logged_in()
+                except StopRun as e:
+                    print(f"error: {e}", file=sys.stderr)
+                    return 2
         r = run_stage(
             engine,
             a.stage,
             a.scope,
             cfg,
-            LiteLLMClient(),
+            llm,
             budget_usd=a.budget_usd,
             dry_run=a.dry_run,
+            limit=a.limit,
         )
         print(json.dumps(r.__dict__, ensure_ascii=False, indent=2, default=str))
-        return 0 if not r.failed else 1
+        if r.stopped:
+            print(f"stopped: {r.stopped}", file=sys.stderr)
+            print(f"resume with: {r.resume}", file=sys.stderr)
+        if r.failed:
+            return 1
+        return 3 if r.stopped else 0
     elif a.cmd == "status":
         for row in status(engine):
             print(json.dumps(row, ensure_ascii=False))

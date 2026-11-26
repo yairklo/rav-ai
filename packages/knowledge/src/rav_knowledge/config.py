@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -45,6 +46,8 @@ class KLConfig:
     quote_min_chars: int = 6
     gate_max_rejected_fraction: float = 0.1  # promote gate: max share of rejected items
     gate_min_located_fraction: float = 0.9
+    backend: str = "api"  # api (LiteLLM, API key) | claude_cli (Claude subscription via the CLI)
+    claude_cli_bin: str = "claude"
 
     @property
     def use_steinsaltz_aid(self) -> bool:
@@ -74,6 +77,9 @@ class KLConfig:
             "steinsaltz": self.use_steinsaltz_aid,
             "temperature": self.temperature,
             "allow_personal_only": self.allow_personal_only,
+            # only when not "api": API-path params / input hashes stay what they were, while
+            # claude_cli jobs and tasks never mix with API ones on resume.
+            **({"backend": self.backend} if self.backend != "api" else {}),
         }
 
 
@@ -116,11 +122,15 @@ def load_config(path: Path | None = None, **overrides) -> KLConfig:
         quote_min_chars=int(th.get("quote_min_chars", 6)),
         gate_max_rejected_fraction=float(th.get("gate_max_rejected_fraction", 0.1)),
         gate_min_located_fraction=float(th.get("gate_min_located_fraction", 0.9)),
+        backend=os.environ.get("RAV_KL_BACKEND") or kl.get("backend", "api"),
+        claude_cli_bin=os.environ.get("RAV_KL_CLAUDE_BIN") or kl.get("claude_cli_bin", "claude"),
     )
     for k, v in overrides.items():
         setattr(cfg, k, v)
     if cfg.anchor_format not in ("quote", "numbered"):
         raise ValueError("anchor_format must be quote|numbered")
+    if cfg.backend not in ("api", "claude_cli"):
+        raise ValueError("backend must be api|claude_cli (kl.backend / RAV_KL_BACKEND)")
     if cfg.mode not in ("personal", "public"):
         raise ValueError("mode must be personal|public")
     return cfg

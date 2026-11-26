@@ -13,7 +13,10 @@ temperature = 0.0
 max_tokens = 8000
 window_amudim = 3            # S1 sliding window (pages)
 window_overlap = 1
-budget_usd = 0.0             # 0 = no cap (the CLI --budget-usd overrides)
+budget_usd = 0.0             # 0 = no cap (the CLI --budget-usd overrides; api backend only)
+backend = "api"              # api (LiteLLM + provider API key) | claude_cli (Claude subscription
+                             # via the local `claude` CLI, no key). Env RAV_KL_BACKEND overrides.
+claude_cli_bin = "claude"    # env RAV_KL_CLAUDE_BIN overrides
 
 # strongest model on every stage by default; second_model is another family
 [models]
