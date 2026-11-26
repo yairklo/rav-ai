@@ -1,0 +1,162 @@
+# kl_sources seed: Bavli Shabbat and the commentaries on the sugya (Shabbat 21b-23b), from the
+# approved core-books-draft (25.11.2026), sections 1, 2 and 5.
+#   tier         - the draft's section: §1 the Gemara = canonical, rishonim (§1/§2) = rishonim,
+#                  acharonim on the sugya (§1 Gilyon HaShas, §5) = acharonim
+#   role         - primary: the work's own text is a source of claims (lenses / reference-only
+#                  works are LENS_RECORDS in rav_knowledge/sources.py)
+#   weight_tier  - the draft's grade: יסוד = core, חשוב = major, מורחב = extended
+#                  (a tie-breaker for selection / "core books not checked"; never halakhic weight)
+#   license_tier - from Sefaria's declaration per version (versions.license -> license_policy
+#                  flags). `rav-kl seed-sources` re-checks it against the DB and refuses an entry
+#                  that is looser than its most restrictive indexable version (fail-closed).
+# Apply: rav-kl seed-sources [--dry-run]. Idempotent. No migration.
+
+[[source]]
+title = "Shabbat"
+tier = "canonical"
+role = "primary"
+weight_tier = "core"
+license_tier = "NON_COMMERCIAL_ONLY"   # Wikisource CC-BY-SA + William Davidson CC-BY-NC (x2)
+draft = "§1 בבלי שבת"
+
+[[source]]
+title = "Rashi on Shabbat"
+tier = "rishonim"
+role = "primary"
+weight_tier = "core"
+license_tier = "PUBLIC_COMMERCIAL"     # Vilna Edition: Public Domain ("rashi" version: unknown, not indexable)
+draft = "§1 רש\"י"
+
+[[source]]
+title = "Tosafot on Shabbat"
+tier = "rishonim"
+role = "primary"
+weight_tier = "core"
+license_tier = "PUBLIC_COMMERCIAL"     # Vilna Edition: Public Domain ("Hebrew books": unknown, not indexable)
+draft = "§1 תוספות"
+
+[[source]]
+title = "Gilyon HaShas on Shabbat"
+tier = "acharonim"
+role = "primary"
+weight_tier = "major"
+license_tier = "PUBLIC_COMMERCIAL"     # Vilna Edition: Public Domain
+draft = "§1 גליון הש\"ס (רעק\"א)"
+
+[[source]]
+title = "Rif Shabbat"
+tier = "rishonim"
+role = "primary"
+weight_tier = "core"
+license_tier = "PUBLIC_COMMERCIAL"     # Vilna Edition: Public Domain
+draft = "§2 רי\"ף"
+
+[[source]]
+title = "Ran on Shabbat"
+tier = "rishonim"
+role = "primary"
+weight_tier = "core"
+license_tier = "PUBLIC_COMMERCIAL"     # Vilna Edition: Public Domain
+draft = "§2 ר\"ן על הרי\"ף"
+
+[[source]]
+title = "Rosh on Shabbat"
+tier = "rishonim"
+role = "primary"
+weight_tier = "core"
+license_tier = "PUBLIC_COMMERCIAL"     # Vilna Edition: Public Domain
+draft = "§2 רא\"ש"
+
+[[source]]
+title = "HaMaor HaKatan on Shabbat"
+tier = "rishonim"
+role = "primary"
+weight_tier = "extended"
+license_tier = "PUBLIC_COMMERCIAL"     # Vilna Edition: Public Domain
+draft = "§2 המאור הקטן"
+
+[[source]]
+title = "Chiddushei Ramban on Shabbat"
+tier = "rishonim"
+role = "primary"
+weight_tier = "core"
+license_tier = "PUBLIC_COMMERCIAL"     # Jerusalem 1928-29: Public Domain
+draft = "§2 רמב\"ן (חידושים)"
+
+[[source]]
+title = "Penei Yehoshua on Shabbat"
+tier = "acharonim"
+role = "primary"
+weight_tier = "core"
+license_tier = "PUBLIC_COMMERCIAL"     # Warsaw 1861: Public Domain
+draft = "§5 פני יהושע"
+
+[[source]]
+title = "Chidushei Halachot on Shabbat"
+tier = "acharonim"
+role = "primary"
+weight_tier = "core"
+license_tier = "PUBLIC_COMMERCIAL"     # Vilna Edition: Public Domain
+draft = "§5 מהרש\"א (חידושי הלכות)"
+
+[[source]]
+title = "Chokhmat Shlomo on Shabbat"
+tier = "acharonim"
+role = "primary"
+weight_tier = "major"
+license_tier = "PUBLIC_COMMERCIAL"     # Vilna Edition: Public Domain
+draft = "§5 מהרש\"ל (= חכמת שלמה)"
+
+[[source]]
+title = "Rashash on Shabbat"
+tier = "acharonim"
+role = "primary"
+weight_tier = "major"
+license_tier = "PUBLIC_COMMERCIAL"     # Vilna Edition: Public Domain
+draft = "§5 רש\"ש"
+
+[[source]]
+title = "Chiddushei Rabbi Akiva Eiger on Shabbat"
+tier = "acharonim"
+role = "primary"
+weight_tier = "major"
+license_tier = "PUBLIC_COMMERCIAL"     # Warsaw 1892: Public Domain
+draft = "§5 חידושי רעק\"א על שבת"
+
+[[source]]
+title = "Chidushei Chatam Sofer on Shabbat"
+tier = "acharonim"
+role = "primary"
+weight_tier = "major"
+license_tier = "PUBLIC_COMMERCIAL"     # 1864-1908: Public Domain
+draft = "§5 חידושי חתם סופר על שבת"
+
+# ---- deliberately NOT registered (documented; registering them needs a decision) -------------
+
+[[not_registered]]
+title = "Rabbeinu Chananel on Shabbat"
+reason = "license missing in Sefaria; draft §1: [לאמת רישיון]"
+
+[[not_registered]]
+title = "Rashba on Shabbat"
+reason = "draft §2: modern edition (Gerlitz/Oraita), [לאמת את בסיס הרישיון]"
+
+[[not_registered]]
+title = "Meiri on Shabbat"
+reason = "license unknown in Sefaria (fail-closed); draft §2 [לאמת]"
+
+[[not_registered]]
+title = "Tziyyun LeNefesh Chayyah on Shabbat"
+reason = "license unknown in Sefaria (fail-closed); draft §5 צל\"ח"
+
+[[not_registered]]
+title = "Haggahot Ya'avetz on Shabbat"
+reason = "license unknown in Sefaria; not in the draft"
+
+[[not_registered]]
+title = "Steinsaltz on Shabbat"
+reason = "draft §1: reading aid only, not a source - no role fits; used as an aid unregistered (admit_aid)"
+
+[[not_registered]]
+title = "Hagahot HaBach on Rif Shabbat"
+reason = "draft §1 lists הגהות הב\"ח על הש\"ס as not found [לאמת]; this is the Bach on the Rif"

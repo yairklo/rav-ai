@@ -29,7 +29,10 @@ BACKENDS = ("api", "claude_cli")
 
 # The child never sees a provider key: the CLI must bill the subscription, not an API account.
 _STRIPPED_ENV = ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN")
-_WIN_CMDLINE_MAX = 8000  # cmd.exe limit is 8191; only matters if we end up running a .cmd shim
+# Command-line limits, checked before spawning so an oversized --json-schema fails clearly:
+_CMD_SHIM_MAX = 8000  # cmd.exe (a .cmd / .bat shim): 8191 chars
+_WIN_EXE_MAX = 32000  # CreateProcess: 32767 chars
+_POSIX_ARG_MAX = 131000  # Linux MAX_ARG_STRLEN: one argument <= 128 KiB
 
 _LIMIT_MARKERS = ("rate_limit", "billing_error", "usage limit", "hit your limit")
 _AUTH_MARKERS = (
@@ -59,16 +62,45 @@ class CLINotFound(StopRun):
     pass
 
 
+class CLICommandTooLong(StopRun):
+    """The argv (mostly the --json-schema) exceeds what the OS can pass to the CLI."""
+
+
+def check_argv(argv: list[str]) -> None:
+    if os.name == "nt":
+        n = len(subprocess.list2cmdline(argv))
+        shim = argv[0].lower().endswith((".cmd", ".bat"))
+        limit = _CMD_SHIM_MAX if shim else _WIN_EXE_MAX
+        if n > limit:
+            raise CLICommandTooLong(
+                f"claude CLI command line is {n} chars, over the {limit}-char limit of "
+                f"{'cmd.exe (.cmd shim)' if shim else 'CreateProcess'}; the --json-schema is too "
+                "large for the claude_cli backend"
+            )
+    else:
+        big = max(len(a.encode("utf-8")) for a in argv)
+        if big > _POSIX_ARG_MAX:
+            raise CLICommandTooLong(
+                f"a claude CLI argument is {big} bytes, over the {_POSIX_ARG_MAX}-byte "
+                "per-argument limit; the --json-schema is too large for the claude_cli backend"
+            )
+
+
 def resolve_bin(name: str) -> str:
     """``claude`` -> an executable path. On Windows prefer the real ``claude.exe`` behind the npm
     ``claude.cmd`` shim: a .cmd runs through cmd.exe (8191-char line, mangles JSON quotes)."""
     p = shutil.which(name)
     if p is None:
         raise CLINotFound(f"claude CLI not found ({name!r}); install it or set RAV_KL_CLAUDE_BIN")
-    if os.name == "nt" and p.lower().endswith((".cmd", ".bat")):
+    if p.lower().endswith((".cmd", ".bat")):
         exe = Path(p).parent / "node_modules" / "@anthropic-ai" / "claude-code" / "bin"
-        if (exe / "claude.exe").exists():
-            return str(exe / "claude.exe")
+        exe = exe / "claude.exe"
+        if exe.exists():
+            return str(exe)
+        raise CLINotFound(
+            f"found only the shim {p} and no claude.exe next to it ({exe}); a .cmd runs through "
+            "cmd.exe (8191-char limit, mangles JSON quotes). Set RAV_KL_CLAUDE_BIN to claude.exe"
+        )
     return p
 
 
@@ -119,9 +151,7 @@ class ClaudeCLIClient:
 
     def _run(self, args: list[str], *, stdin: str | None = None, cwd: str | None = None):
         argv = [*self.cmd, *args]
-        if os.name == "nt" and argv[0].lower().endswith((".cmd", ".bat")):
-            if len(subprocess.list2cmdline(argv)) > _WIN_CMDLINE_MAX:
-                raise RuntimeError("claude CLI command line too long for a .cmd shim")
+        check_argv(argv)
         return subprocess.run(  # noqa: S603 - argv list, no shell
             argv,
             input=stdin,
@@ -136,7 +166,10 @@ class ClaudeCLIClient:
 
     def version(self) -> str:
         if self._version is None:
-            p = self._run(["--version"])
+            try:
+                p = self._run(["--version"])
+            except (StopRun, OSError, subprocess.SubprocessError):
+                return "unknown"  # metadata only: never fails a run
             self._version = (p.stdout or p.stderr).strip() if p.returncode == 0 else "unknown"
         return self._version
 

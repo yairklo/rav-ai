@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -304,7 +305,8 @@ def run_stage(
     dry_run: bool = False,
     limit: int | None = None,
 ) -> RunReport:
-    """``limit``: at most this many NEW tasks (LLM work) in this invocation; then the job stops as
+    """``limit``: at most this many new tasks that call the LLM in this invocation (deterministic
+    tasks such as the S1 merge do not count); then the job stops as
     'aborted' and the same command resumes it. A ``StopRun`` from the backend (usage limit, not
     logged in) rolls back the task's writes, puts it back to 'pending' and stops the loop."""
     if stage not in STAGES:
@@ -348,7 +350,7 @@ def run_stage(
     with Session(engine) as s:
         spent = float(s.get(KlJob, job_id).cost_usd or 0.0)
     aborted = False
-    started = 0
+    llm_tasks = 0  # tasks of this invocation that made at least one LLM call (for --limit)
     drain = getattr(llm, "drain_calls", None)
     for sp in specs:
         with Session(engine) as s:
@@ -380,11 +382,11 @@ def run_stage(
             if budget and est is not None and spent + est > budget:
                 aborted = True
                 break
-            if limit is not None and started >= limit:
+            may_call_llm = rc.model is not None and not sp.payload.get("merge")
+            if limit is not None and may_call_llm and llm_tasks >= limit:
                 aborted = True
                 report.stopped = f"--limit {limit} reached"
                 break
-            started += 1
             t.state, t.attempts = "running", t.attempts + 1
             s.commit()
         try:
@@ -404,6 +406,7 @@ def run_stage(
                 t.updated_at = _now()
                 s.commit()
             spent += out.usage.cost_usd
+            llm_tasks += out.usage.calls > 0
             report.done += 1
             report.llm_calls += out.usage.calls
             report.input_tokens += out.usage.input_tokens
@@ -441,6 +444,7 @@ def run_stage(
                     t.cost_usd = usage.cost_usd
                 s.commit()
             if usage:
+                llm_tasks += usage.calls > 0
                 spent += usage.cost_usd
                 report.llm_calls += usage.calls
                 report.input_tokens += usage.input_tokens
@@ -470,12 +474,16 @@ def run_stage(
         report.stats = job.stats
         s.commit()
     if aborted:
-        report.resume = f'rav-kl run {stage} "{scope_key}"' + (
-            f" --limit {limit}" if limit is not None else ""
-        )
-        if cfg.backend != "api":
-            report.resume += f"  (backend {cfg.backend}: same config / RAV_KL_BACKEND)"
+        report.resume = resume_command(stage, scope_key, cfg.backend, limit)
     return report
+
+
+def resume_command(stage: str, scope_key: str, backend: str, limit: int | None = None) -> str:
+    """The same command with the backend explicit, in the shell of this platform."""
+    cmd = f'rav-kl run {stage} "{scope_key}"' + (f" --limit {limit}" if limit is not None else "")
+    if os.name == "nt":  # PowerShell
+        return f'$env:RAV_KL_BACKEND = "{backend}"; {cmd}'
+    return f"RAV_KL_BACKEND={backend} {cmd}"
 
 
 def _task_llm_meta(llm: Any, calls: list[dict]) -> dict:
