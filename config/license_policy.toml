@@ -6,6 +6,9 @@
 # Matching: case/space-insensitive; exact key or `aliases`, else the longest key that is a
 # prefix at a '-' boundary ("CC-BY-SA 3.0 Unported" -> cc-by-sa). Unlisted or missing => [unknown]
 # (fail closed). Edit and run `rav-ingest recompute-flags` to re-apply without re-importing.
+# Optional `personal_only = true` on a class: the knowledge layer (rav-kl seed-sources) then
+# requires kl_sources.license_tier = PERSONAL_ONLY_RESTRICTED for a work with such a version.
+# It is not stored on versions and does not change the three flags. No class uses it yet.
 
 [licenses."public domain"]
 aliases = ["pd", "public domain mark", "cc-pdm"]

@@ -117,3 +117,92 @@ reason = "license unknown"
 
 def test_seed_path_is_in_config():
     assert SEED_PATH.name == "kl_sources_seed.toml" and SEED_PATH.parent.name == "config"
+
+
+def _personal_policy(tmp_path):
+    from rav_ai.config import POLICY_PATH
+
+    p = tmp_path / "policy.toml"
+    p.write_text(
+        POLICY_PATH.read_text(encoding="utf-8")
+        + '\n[licenses."personal-use-only"]\ncan_index = true\ncan_display_public = false\n'
+        "can_train = false\npersonal_only = true\n",
+        encoding="utf-8",
+    )
+    return p
+
+
+def _set_only_version(engine, title, license_str, display):
+    with Session(engine) as s:
+        w = s.scalars(select(Work).where(Work.title == title)).one()
+        for v in s.scalars(select(Version).where(Version.work_id == w.id)):
+            v.license, v.can_index, v.can_display_public, v.can_train = (
+                license_str,
+                True,
+                display,
+                False,
+            )
+        s.commit()
+        return w.id
+
+
+def test_personal_only_version_requires_personal_tier(world, tmp_path):
+    from rav_knowledge.sources import required_license_tier
+
+    policy = _personal_policy(tmp_path)
+    wid = _set_only_version(world.engine, "Steinsaltz on Shabbat", "Personal-Use-Only", False)
+    with Session(world.engine) as s:
+        need, basis = required_license_tier(s, s.get(Work, wid), policy)
+        assert need == "PERSONAL_ONLY_RESTRICTED" and "Personal-Use-Only" in basis[0]
+    entry = (
+        '[[source]]\ntitle = "Steinsaltz on Shabbat"\ntier = "modern_secondary"\nrole = "lens"\n'
+    )
+    # negative: a looser declaration (non-commercial, or public) is refused and nothing is written
+    for declared in ("NON_COMMERCIAL_ONLY", "PUBLIC_COMMERCIAL"):
+        p = _seed(tmp_path, entry + f'license_tier = "{declared}"\n')
+        with Session(world.engine) as s:
+            res = seed_sources(s, p, policy_path=policy)
+            s.commit()
+            assert res["registered"] == []
+            assert "looser than PERSONAL_ONLY_RESTRICTED" in res["refused"][0]["reason"]
+            assert s.get(KlSource, wid) is None
+    p = _seed(tmp_path, entry + 'license_tier = "PERSONAL_ONLY_RESTRICTED"\n')
+    with Session(world.engine) as s:
+        res = seed_sources(s, p, policy_path=policy)
+        s.commit()
+        assert [r["title"] for r in res["registered"]] == ["Steinsaltz on Shabbat"]
+        assert s.get(KlSource, wid).license_tier == "PERSONAL_ONLY_RESTRICTED"
+
+
+def test_cc_by_nc_stays_non_commercial_not_personal(world):
+    from rav_knowledge.sources import required_license_tier
+
+    wid = _set_only_version(world.engine, "Steinsaltz on Shabbat", "CC-BY-NC", False)
+    with Session(world.engine) as s:  # the shipped policy marks no class personal_only
+        assert required_license_tier(s, s.get(Work, wid))[0] == "NON_COMMERCIAL_ONLY"
+
+
+def test_shipped_seed_covers_the_codes_and_lists_the_requested_skips():
+    seed = load_seed()
+    by = {e["title"]: e for e in seed["source"]}
+    for t in (
+        "Shulchan Arukh, Orach Chayim",
+        "Tur",
+        "Magen Avraham",
+        "Mishnah Berurah",
+        "Turei Zahav on Shulchan Arukh, Orach Chayim",
+        "Beur HaGra on Shulchan Arukh, Orach Chayim",
+    ):
+        assert t in by and by[t]["draft"].startswith(("§3", "§4"))
+    assert by["Shulchan Arukh, Orach Chayim"]["tier"] == "codes"
+    assert by["Magen Avraham"]["tier"] == "nosei_kelim"
+    skipped = {e["title"] for e in seed["not_registered"]}
+    for t in (
+        "Sefat Emet",
+        "Ohr Zarua",
+        "Bnei Yissaschar",
+        "Mishneh Torah, Scroll of Esther and Hanukkah",
+        "Maggid Mishneh on Mishneh Torah, Scroll of Esther and Hanukkah",
+        "Sha'ar HaTziyun",
+    ):
+        assert t in skipped and t not in by
